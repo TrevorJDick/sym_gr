@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sym_gr"
+version = "0.1.0"
+description = "Symbolic General Relativity with SymPy — a transparent tensor computation toolkit for researchers and educators."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "sym_gr contributors" }
+]
+keywords = [
+    "general relativity",
+    "tensor calculus",
+    "symbolic mathematics",
+    "sympy",
+    "differential geometry",
+    "physics",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "sympy>=1.13",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+ui = [
+    "streamlit>=1.35",
+]
+numerical = [
+    "scipy>=1.13",
+]
+plotting = [
+    "matplotlib>=3.9",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+all = [
+    "streamlit>=1.35",
+    "scipy>=1.13",
+    "matplotlib>=3.9",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[project.urls]
+Repository = "https://github.com/your-org/sym_gr"
+Issues = "https://github.com/your-org/sym_gr/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sym_gr*", "core*", "ui*", "examples*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
