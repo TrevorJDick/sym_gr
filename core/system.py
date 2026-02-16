@@ -21,6 +21,7 @@ from .constraints import _function_subs
 def field_equations(
     tensor: ImmutableDenseNDimArray,
     condition: Expr | int = 0,
+    rhs_tensor: ImmutableDenseNDimArray | None = None,
     symmetry: Literal["symmetric", "antisymmetric", "none"] = "symmetric",
 ) -> list[Eq]:
     """
@@ -32,9 +33,13 @@ def field_equations(
     Parameters
     ----------
     tensor : ImmutableDenseNDimArray, shape (n, n)
-        The tensor whose components are set equal to *condition*.
+        The tensor whose components are set equal to *condition* or *rhs_tensor*.
     condition : sympy.Expr or int, default 0
-        The right-hand side. Typically 0 for vacuum equations.
+        The right-hand side scalar. Used when *rhs_tensor* is None.
+        Typically 0 for vacuum equations.
+    rhs_tensor : ImmutableDenseNDimArray, shape (n, n), optional
+        Per-component right-hand side. When provided, *condition* is ignored
+        and ``tensor[μ,ν] = rhs_tensor[μ,ν]`` is generated for each component.
     symmetry : {"symmetric", "antisymmetric", "none"}
         Controls which index pairs are returned:
         - "symmetric"     → only μ ≤ ν
@@ -54,7 +59,7 @@ def field_equations(
 
     n = tensor.shape[0]
     eqs: list[Eq] = []
-    rhs = Integer(condition) if isinstance(condition, int) else condition
+    scalar_rhs = Integer(condition) if isinstance(condition, int) else condition
 
     for mu in range(n):
         if symmetry == "symmetric":
@@ -66,6 +71,7 @@ def field_equations(
 
         for nu in nu_range:
             comp = tensor[mu, nu]
+            rhs = rhs_tensor[mu, nu] if rhs_tensor is not None else scalar_rhs
             # Drop trivial 0 = 0
             if comp == rhs:
                 continue
