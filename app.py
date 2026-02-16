@@ -58,6 +58,22 @@ st.set_page_config(
 
 st.title("sym_gr — Symbolic General Relativity")
 
+st.markdown(
+    """
+**What to provide:** A coordinate system and a *metric ansatz* — the symmetry-reduced
+form of the metric with unknown functions standing in for components not yet determined.
+
+The tool computes the Einstein tensor **G_μν** symbolically in terms of those unknowns,
+generates the vacuum field equations **G_μν = 0** (a system of ODEs/PDEs), and lets you
+apply constraints or candidate solutions to reduce or verify the system.
+
+> **Example:** For a static, spherically symmetric spacetime, symmetry forces the metric
+> to be diagonal with two free functions of r. Load the *Schwarzschild ansatz* preset to see this.
+""",
+    help=None,
+)
+st.divider()
+
 # ---------------------------------------------------------------------------
 # Initialise session state
 # ---------------------------------------------------------------------------
@@ -135,18 +151,28 @@ with st.sidebar:
         "Coordinates (comma-separated)",
         value=st.session_state["coords_str"],
         key="_coords_input",
-        help="E.g. t, r, theta, phi",
+        help=(
+            "The independent variables for your spacetime, in order. "
+            "These become SymPy symbols used throughout the calculation. "
+            "Example: t, r, theta, phi"
+        ),
     )
     st.session_state["coords_str"] = coords_input
 
     # -- Metric input
     metric_input = st.text_area(
-        "Metric g_μν",
+        "Metric ansatz g_μν",
         value=st.session_state["metric_str"],
         height=120,
         key="_metric_input",
-        help="Use diag(...) or Matrix([[...], ...]). "
-             "Functions like A(r), B(r) are auto-declared.",
+        help=(
+            "The symmetry-reduced form of the metric. Unknown functions like A(r), B(r) "
+            "are declared automatically — they represent metric components you have not "
+            "yet solved for. The tool will compute G_μν symbolically in terms of them "
+            "and derive the field equations they must satisfy.\n\n"
+            "Use diag(...) for diagonal metrics or Matrix([[...], ...]) for general ones. "
+            "Sign convention: (-1, +1, +1, +1) by default."
+        ),
     )
     st.session_state["metric_str"] = metric_input
 
@@ -322,7 +348,7 @@ with col_main:
                 )
 
     # ---- Field equations ----------------------------------------------
-    with st.expander("Field Equations  G_μν = 0"):
+    with st.expander("Field Equations  G_μν = 0  (vacuum, Λ = 0)"):
         st_obj = _get_spacetime()
         if st_obj is None:
             _need_compute_msg()
