@@ -137,26 +137,51 @@ pprint(st.ricci())             # pretty-printed to terminal
 
 ## Installation
 
+Requires Python 3.11+.
+
 ```bash
-git clone https://github.com/your-org/sym_gr.git
+git clone https://github.com/TrevorJDick/sym_gr.git
 cd sym_gr
 pip install -e .
 ```
 
-### Running the UI
+### Run the examples
+
+**Milestone 1 — Minkowski** (fast, ~1s):
+```bash
+python -m examples.minkowski
+```
+
+**Milestone 2 — Schwarzschild** (slow, ~60–90s — symbolic derivatives over a 4D metric):
+```bash
+python -m examples.schwarzschild
+```
+
+### Run the tests
 
 ```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+All 10 tests should pass in under 2 seconds.
+
+### Running the UI (coming in Milestone 3)
+
+```bash
+pip install -e ".[ui]"
 streamlit run app.py
 ```
 
 ### Dependencies
 
-| Package | Role |
-|---------|------|
-| `sympy >= 1.13` | All symbolic computation |
-| `streamlit >= 1.35` | Interactive UI |
-| `numpy >= 1.26` | Numerical array support |
-| `scipy >= 1.13` | Optional: numerical ODE solving |
+| Package | Role | Install |
+|---------|------|---------|
+| `sympy >= 1.13` | All symbolic computation | core |
+| `numpy >= 1.26` | Numerical array support | core |
+| `streamlit >= 1.35` | Interactive UI | `.[ui]` |
+| `scipy >= 1.13` | Optional ODE solving | `.[numerical]` |
+| `pytest >= 8.0` | Tests | `.[dev]` |
 
 ---
 
