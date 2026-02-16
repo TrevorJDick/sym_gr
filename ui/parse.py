@@ -57,6 +57,13 @@ def _build_local_dict(coord_syms: list[Symbol]) -> dict:
             "sqrt": sqrt,
             "exp": exp,
             "log": log,
+            # Common GR / physics constants — explicitly declared as symbols
+            # so they are not mistaken for SymPy built-ins (e.g. Lambda is a
+            # SymPy anonymous-function constructor, not a cosmological constant).
+            "Lambda": symbols("Lambda"),
+            "G": symbols("G"),
+            "c": symbols("c"),
+            "M": symbols("M"),
         }
     )
     return local
