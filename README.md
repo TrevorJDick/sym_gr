@@ -22,6 +22,28 @@ The key design principle: **the toolkit makes no physical assumptions**. The use
 
 ---
 
+## Conceptual Workflow
+
+In GR, the metric is not known in advance — it is the *solution* to the Einstein field equations. To make the problem tractable, a researcher typically:
+
+1. **Chooses a coordinate system** — e.g. `(t, r, θ, φ)` for spherical coordinates
+2. **Applies symmetry assumptions** — e.g. static (no time dependence) + spherical symmetry forces the metric to be diagonal with specific structure
+3. **Writes a metric ansatz** — the symmetry-reduced form with unknown functions standing in for the components not yet determined, e.g.:
+
+   ```
+   ds² = -A(r) dt² + B(r) dr² + r² dθ² + r² sin²θ dφ²
+   ```
+
+   Here `A(r)` and `B(r)` are unknown functions. The ansatz encodes *what you know about the solution's structure* without assuming the solution itself.
+
+4. **Computes the Einstein tensor** `G_μν` symbolically — this produces expressions in terms of `A(r)`, `B(r)`, and their derivatives
+5. **Sets physical conditions** — e.g. vacuum (`T_μν = 0`, `Λ = 0`) gives `G_μν = 0`, yielding a system of ODEs for `A(r)` and `B(r)`
+6. **Applies further constraints** — e.g. Bianchi identities, boundary conditions, or a candidate solution to verify it satisfies the equations
+
+**This tool handles steps 4–6.** Steps 1–3 are the researcher's physical reasoning — the tool takes that ansatz as input.
+
+---
+
 ## What This Is Not
 
 - Not a numerical ODE/PDE solver (though the output equations can be fed into SciPy)
@@ -32,36 +54,28 @@ The key design principle: **the toolkit makes no physical assumptions**. The use
 
 ## Milestones
 
-### Milestone 1 — Minkowski metric from vacuum field equations
+### Milestone 1 — Minkowski sanity check
 
-Show that inputting a general flat-space metric ansatz and requiring vanishing Riemann curvature (`R^σ_μνρ = 0`) produces a system of equations whose solution is the Minkowski metric `diag(-1, 1, 1, 1)` in Cartesian coordinates.
-
-This validates the computation pipeline end-to-end with the simplest known case.
+Input the known flat-space metric `diag(-1, 1, 1, 1)` in Cartesian coordinates `(t, x, y, z)`. Every derived tensor should be identically zero — this validates that the pipeline computes correct zero results for the simplest case.
 
 ### Milestone 2 — Schwarzschild metric from vacuum EFE
 
-Show that inputting a spherically symmetric static metric ansatz:
+Input the spherically symmetric static ansatz with unknown functions:
 
 ```
 ds² = -A(r) dt² + B(r) dr² + r² dΩ²
 ```
 
-and applying vacuum Einstein field equations `G_μν = 0` produces the system of ODEs whose unique solution (with appropriate boundary conditions) is the Schwarzschild metric:
-
-```
-A(r) = 1 - 2M/r,   B(r) = (1 - 2M/r)^{-1}
-```
-
-This is the reference validation that the symbolic pipeline is correct for a physically meaningful case.
+Apply vacuum field equations `G_μν = 0` to derive the ODE system for `A(r)` and `B(r)`. Verify that the known Schwarzschild solution `A(r) = 1 - 2M/r`, `B(r) = (1 - 2M/r)⁻¹` satisfies those equations identically.
 
 ### Milestone 3 — Interactive Streamlit UI
 
 Wrap the computation pipeline in a Streamlit app where users can:
 
-- Enter coordinates and metric components in a structured grid
-- Add equations and constraints using standard SymPy expression syntax
-- View all intermediate tensors rendered as LaTeX
-- Export the derived system of equations
+- Enter a coordinate system and metric ansatz in plain text
+- Compute all GR tensors and view them rendered as LaTeX
+- Generate vacuum field equations with one click
+- Apply constraints (candidate solutions, Bianchi conditions, gauge choices) and see the reduced equation system
 
 ---
 
