@@ -164,9 +164,11 @@ def display_christoffel_steps(
             st.info("No components to display.")
         else:
             st.success(
-                "All Christoffel symbols are zero — spacetime is flat "
-                "(in these coordinates). Enable *Show zero components* to "
-                "see each vanishing derivation."
+                "All Christoffel symbols are zero — spacetime is flat in these coordinates."
+            )
+            st.info(
+                "To inspect the vanishing derivations, enable both "
+                "**Step-by-step** and **Show zero components** above."
             )
 
 

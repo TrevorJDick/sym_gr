@@ -110,6 +110,7 @@ def _init_state() -> None:
         # Compute options
         "simplified": False,
         "_input_key": None,
+        "_last_applied_preset": None,
         # Cached tensors
         "spacetime": None,
         "christoffel": None,
@@ -170,16 +171,24 @@ with st.sidebar:
         key="_preset_select",
     )
 
-    if preset_choice != "(none)":
+    _last = st.session_state.get("_last_applied_preset")
+
+    # Only apply when the selection actually changes — prevents re-firing on
+    # every Streamlit rerun (e.g. when the user clicks a checkbox elsewhere).
+    if preset_choice != "(none)" and preset_choice != _last:
         p = PRESETS[preset_choice]
-        st.session_state["lambda_str"]  = p["lambda_str"]
-        st.session_state["kappa_str"]   = p["kappa_str"]
-        st.session_state["T_str"]       = p["T_str"]
+        st.session_state["lambda_str"]   = p["lambda_str"]
+        st.session_state["kappa_str"]    = p["kappa_str"]
+        st.session_state["T_str"]        = p["T_str"]
         st.session_state["coord_preset"] = p["coord_preset"]
-        st.session_state["signature"]   = p["signature"]
-        st.session_state["coords_str"]  = p["coords"]
-        st.session_state["metric_str"]  = p["metric"]
+        st.session_state["signature"]    = p["signature"]
+        st.session_state["coords_str"]   = p["coords"]
+        st.session_state["metric_str"]   = p["metric"]
+        st.session_state["_last_applied_preset"] = preset_choice
         _wipe_tensors()
+    elif preset_choice == "(none)":
+        # Reset tracker so user can re-select the same preset later if needed
+        st.session_state["_last_applied_preset"] = None
 
 # ---------------------------------------------------------------------------
 # ── Section 1: EFE Setup ────────────────────────────────────────────────────
