@@ -46,7 +46,7 @@ COORD_PRESETS: dict[str, dict] = {
             r"z = r\cos\theta",
         ],
         "metric_diag_minus": "diag(-A(r), B(r), r**2, r**2*sin(theta)**2)",
-        "metric_diag_plus":  None,   # ansatz — only defined for −+++
+        "metric_diag_plus":  "diag(A(r), -B(r), -r**2, -r**2*sin(theta)**2)",
     },
     "Custom": {
         "coords": "",
