@@ -46,7 +46,7 @@ COORD_PRESETS: dict[str, dict] = {
             r"z = r\cos\theta",
         ],
         "metric_diag_minus": "diag(-A(r), B(r), r**2, r**2*sin(theta)**2)",
-        "metric_diag_plus":  None,   # ansatz — only defined for −+++
+        "metric_diag_plus":  "diag(A(r), -B(r), -r**2, -r**2*sin(theta)**2)",
     },
     "Custom": {
         "coords": "",
@@ -97,6 +97,8 @@ def render_coord_config() -> tuple[str, str]:
             hint = preset_data.get(hint_key)
             if hint:
                 st.session_state["metric_str"] = hint
+                st.session_state["_metric_input"] = hint
+                st.session_state["_last_expr_synced_to_grid"] = ""
 
     with col_coords:
         coords_input = st.text_input(
@@ -107,26 +109,6 @@ def render_coord_config() -> tuple[str, str]:
         )
         st.session_state["coords_str"] = coords_input
 
-    # --- Signature radio
-    sig = st.radio(
-        "Signature",
-        options=["-+++", "+---"],
-        index=0 if st.session_state.get("signature", "-+++") == "-+++" else 1,
-        horizontal=True,
-        key="_signature_radio",
-        help="Sign convention for the metric.  −+++ is standard in GR (e.g. Carroll).",
-    )
-    old_sig = st.session_state.get("signature", "-+++")
-    st.session_state["signature"] = sig
-
-    # If signature changed, update metric hint
-    if sig != old_sig:
-        preset_data = COORD_PRESETS.get(st.session_state.get("coord_preset", ""), {})
-        hint_key = "metric_diag_minus" if sig == "-+++" else "metric_diag_plus"
-        hint = preset_data.get(hint_key)
-        if hint:
-            st.session_state["metric_str"] = hint
-
     # --- Show coordinate transforms if preset has them
     preset_data = COORD_PRESETS.get(chosen, {})
     transforms = preset_data.get("transforms")
@@ -135,8 +117,4 @@ def render_coord_config() -> tuple[str, str]:
             for t in transforms:
                 st.latex(t)
 
-    # Determine metric hint
-    hint_key = "metric_diag_minus" if sig == "-+++" else "metric_diag_plus"
-    metric_hint = preset_data.get(hint_key)
-
-    return coords_input, metric_hint
+    return coords_input

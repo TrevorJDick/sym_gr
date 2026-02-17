@@ -411,6 +411,36 @@ $G_{{\mu\nu}} = R_{{\mu\nu}} - \tfrac{{1}}{{2}} R\, g_{{\mu\nu}}$.
     return "\n".join(lines) + "\n"
 
 
+def _sec_constrained_equations(constrained_eqs: list, field_eq_count: int) -> str:
+    """
+    Render the reduced equations after constraint substitution.
+
+    Equation numbers continue from where the field equations left off.
+    """
+    if not constrained_eqs:
+        return r"""
+\section*{Reduced Equations (after constraints)}
+
+All equations are satisfied identically after substituting the constraints
+($0 = 0$ for every component).  The ansatz is consistent with the
+imposed constraints.
+
+"""
+
+    lines = [
+        r"\section*{Reduced Equations (after constraints)}",
+        "",
+        r"After substituting the constraints into the field equations:",
+        r"\begin{align}",
+    ]
+    for i, eq in enumerate(constrained_eqs, start=field_eq_count + 1):
+        lines.append(
+            rf"  {latex(eq.lhs)} &= {latex(eq.rhs)} \label{{eq:{i}}} \\"
+        )
+    lines += [r"\end{align}", ""]
+    return "\n".join(lines) + "\n"
+
+
 def _sec_field_equations(eqs: list, lambda_str: str, kappa_str: str, T_str: str) -> str:
     efe_lhs = _efe_lhs_latex(lambda_str)
     efe_rhs = _efe_rhs_latex(T_str, kappa_str)
@@ -478,6 +508,7 @@ def build_full_latex(
     ricci_scalar=None,
     einstein=None,
     field_eqs=None,
+    constrained_eqs=None,
     lambda_str: str = "0",
     kappa_str: str = "8*pi*G",
     T_str: str = "0",
@@ -518,6 +549,8 @@ def build_full_latex(
 
     if field_eqs is not None:
         parts.append(_sec_field_equations(field_eqs, lambda_str, kappa_str, T_str))
+        if constrained_eqs is not None:
+            parts.append(_sec_constrained_equations(constrained_eqs, len(field_eqs)))
         parts.append(_sec_next_steps(m, field_eqs))
 
     parts.append(_latex_footer())

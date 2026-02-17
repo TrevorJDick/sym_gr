@@ -3,8 +3,9 @@ ui/efe_config.py
 ----------------
 EFE (Einstein Field Equation) section widgets.
 
-Renders the full EFE banner, input controls for Λ, κ, T_μν, and
-a live LaTeX summary of the configured equation.
+Renders the full EFE banner, input controls for Λ and κ, and a live LaTeX
+summary of the configured equation.  T_μν is configured separately via
+render_T_controls() which lives below the metric section (it needs coords).
 
 No heavy computation here — SymPy is only touched in build_rhs_tensor()
 which is called at field-equation generation time.
@@ -27,16 +28,15 @@ def render_efe_banner() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Section 1b: EFE controls
+# Section 1b: EFE controls  (Λ and κ only — T configured in Section 3)
 # ---------------------------------------------------------------------------
 
 def render_efe_controls() -> tuple[str, str, str]:
     """
-    Render the 5-column EFE term controls.
+    Render EFE term controls for Λ, κ, and a T_μν status display.
 
-    Columns correspond to: G_μν | Λ | g_μν | κ | T_μν
-
-    Writes lambda_str, kappa_str, T_str to session_state and returns them.
+    T_μν is edited in Section 3 (needs coord context); this column just
+    shows the current value from session state.
 
     Returns
     -------
@@ -68,29 +68,92 @@ def render_efe_controls() -> tuple[str, str, str]:
             value=st.session_state.get("kappa_str", "8*pi*G"),
             key="_kappa_input",
             placeholder="e.g. 8*pi*G",
-            help="Scalar. Typically 8πG/c⁴ (natural units: 8πG).",
+            help="Scalar. Typically 8πG/c⁴ (geometric units: 8πG). Use the κ calculator below to compute from G and c.",
         )
         st.session_state["kappa_str"] = kappa_str
 
     with col_T:
-        T_str = st.text_area(
-            "T_μν  (stress-energy tensor, rank-2)",
-            value=st.session_state.get("T_str", "0"),
-            height=90,
-            key="_T_input",
-            placeholder="0  or  diag(rho, p, p, p)",
-            help=(
-                "Stress-energy tensor. Enter 0 for vacuum, or a matrix expression.\n"
-                "E.g.  diag(rho, p, p, p)  or  Matrix([[rho,0,0,0],[0,p,0,0],...])"
-            ),
-        )
-        st.session_state["T_str"] = T_str
+        st.markdown("**T_μν**")
+        st.caption("stress-energy — configured below")
 
+    T_str = st.session_state.get("T_str", "0")
     return lambda_str, kappa_str, T_str
 
 
 # ---------------------------------------------------------------------------
-# Section 1c: live equation summary (pure string logic, no SymPy)
+# Section 1c: κ calculator — physical constants helper
+# ---------------------------------------------------------------------------
+
+_UNIT_SYSTEMS = {
+    "Geometric  (G = c = 1)": ("1", "1"),
+    "Natural  (c = 1, G = 1)": ("1", "1"),
+    "SI  (MKS)": ("6.674e-11", "299792458"),
+    "CGS": ("6.674e-8", "29979245800"),
+}
+
+
+def render_constants_helper() -> None:
+    """
+    Optional expander: compute κ = 8πG/c⁴ from unit-system presets.
+
+    When the user clicks Apply, the κ text input is updated.
+    """
+    with st.expander("κ calculator — set G and c (optional)", expanded=False):
+        st.caption(
+            "Choose a unit system to pre-fill G and c, then click **Apply** "
+            "to push the computed κ = 8πG/c⁴ into the κ field above. "
+            "You can still edit κ directly at any time."
+        )
+
+        unit_sys = st.selectbox(
+            "Unit system",
+            options=["Custom (enter below)"] + list(_UNIT_SYSTEMS.keys()),
+            key="_gc_unit_sys",
+        )
+
+        if unit_sys in _UNIT_SYSTEMS:
+            g_default, c_default = _UNIT_SYSTEMS[unit_sys]
+        else:
+            g_default = st.session_state.get("_G_val_input", "G")
+            c_default = st.session_state.get("_c_val_input", "c")
+
+        gc_cols = st.columns(2)
+        with gc_cols[0]:
+            G_val = st.text_input(
+                "G (gravitational constant)",
+                value=g_default,
+                key="_G_val_input",
+                placeholder="e.g. 6.674e-11 or G",
+            )
+        with gc_cols[1]:
+            c_val = st.text_input(
+                "c (speed of light)",
+                value=c_default,
+                key="_c_val_input",
+                placeholder="e.g. 299792458 or c",
+            )
+
+        # Compute κ = 8πG/c⁴
+        try:
+            from sympy import pi, sympify, latex as sp_latex
+            G_sym = sympify(G_val or "G")
+            c_sym = sympify(c_val or "c")
+            kap_computed = 8 * pi * G_sym / c_sym**4
+            kap_str = str(kap_computed)
+            st.markdown(
+                r"Computed: $\kappa = \frac{8\pi G}{c^4} = $ "
+                + f"$\\displaystyle {sp_latex(kap_computed)}$"
+            )
+            if st.button("Apply to κ", key="_apply_kap_btn"):
+                st.session_state["_kappa_input"] = kap_str
+                st.session_state["kappa_str"] = kap_str
+                st.rerun()
+        except Exception as exc:
+            st.error(f"Could not compute κ: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Section 1d: live equation summary (pure string logic, no SymPy)
 # ---------------------------------------------------------------------------
 
 def render_efe_result(lambda_str: str, kappa_str: str, T_str: str) -> None:
@@ -167,7 +230,6 @@ def build_rhs_tensor(
     n = metric_matrix.shape[0]
     local = _build_local_dict(coord_syms)
 
-    # Add G as a symbol (gravitational constant) if not already a coord
     from sympy import symbols as sp_symbols
     if "G" not in local:
         local["G"] = sp_symbols("G")
@@ -176,7 +238,6 @@ def build_rhs_tensor(
     if "c" not in local:
         local["c"] = sp_symbols("c")
 
-    # Helper: parse a scalar string
     def _parse_scalar(s: str, name: str):
         s = s.strip()
         if s == "0" or s == "":
@@ -186,13 +247,11 @@ def build_rhs_tensor(
         except Exception as exc:
             raise ValueError(f"Could not parse {name}={s!r}: {exc}") from exc
 
-    # Helper: parse a matrix string (or scalar 0)
     def _parse_tensor(s: str, name: str):
         s = s.strip()
         if s == "0" or s == "":
             from sympy import zeros as sp_zeros2
             return sp_zeros2(n, n)
-        # inject function names
         func_names = set(re.findall(r'\b([A-Za-z_]\w*)\s*\(', s))
         from sympy import Function
         for fn in func_names:
@@ -209,8 +268,6 @@ def build_rhs_tensor(
                     f"{name} must be {n}×{n} (got {result.shape[0]}×{result.shape[1]})"
                 )
             return result
-        # scalar — broadcast to diagonal? No, assume scalar means zero tensor
-        # Actually if they entered a plain scalar for T, treat as 0-tensor
         try:
             scalar_val = result
             if scalar_val == Integer(0):
@@ -226,7 +283,6 @@ def build_rhs_tensor(
     kap = _parse_scalar(kappa_str, "κ")
     T_mat = _parse_tensor(T_str, "T_μν")
 
-    # RHS = κ·T − Λ·g
     from sympy import Matrix
     rhs_mat = kap * T_mat - lam * Matrix(metric_matrix)
 
