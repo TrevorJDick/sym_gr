@@ -4,9 +4,9 @@ app.py
 Streamlit UI for sym_gr — interactive symbolic GR tensor computation.
 
 Layout: linear main-area scroll with four sections:
-  1. EFE Setup      — configure the Einstein field equation
+  1. EFE Setup      — configure the Einstein field equation (Λ, κ, T preview)
   2. Coordinate System — choose coordinates and signature
-  3. Metric Ansatz  — enter / review the metric
+  3. Metric Ansatz + T_μν — enter / review the metric and stress-energy tensor
   4. Results        — Christoffel, Riemann, Ricci, Einstein, field equations
 
 Run with:
@@ -31,7 +31,13 @@ from ui.display import (
     display_scalar,
     display_equations,
 )
-from ui.efe_config import render_efe_banner, render_efe_controls, render_efe_result, build_rhs_tensor
+from ui.efe_config import (
+    render_efe_banner,
+    render_efe_controls,
+    render_efe_result,
+    render_constants_helper,
+    build_rhs_tensor,
+)
 from ui.coord_config import render_coord_config, COORD_PRESETS
 from ui.drill_down import display_christoffel_steps, display_riemann_steps
 from ui.export import build_full_latex, build_python_code, render_export_buttons
@@ -111,9 +117,12 @@ def _init_state() -> None:
         "simplified": False,
         "_input_key": None,
         "_last_applied_preset": None,
-        # Expression ↔ Grid sync
+        # Metric Expression ↔ Grid sync
         "_metric_from_grid": False,
         "_last_expr_synced_to_grid": "",
+        # T_μν Expression ↔ Grid sync
+        "_T_from_grid": False,
+        "_last_T_synced_to_grid": "",
         # Cached tensors
         "spacetime": None,
         "christoffel": None,
@@ -161,12 +170,51 @@ def _wipe_tensors() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Helpers: Expression ↔ Grid sync
+# Helper: reset all state to defaults
+# ---------------------------------------------------------------------------
+
+def _reset_to_defaults() -> None:
+    """Reset all session state to initial defaults and wipe tensor cache."""
+    force_defaults = {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Cartesian 4D",
+        "signature": "-+++",
+        "coords_str": "t, x, y, z",
+        "metric_str": "diag(-1, 1, 1, 1)",
+        "simplified": False,
+        "_input_key": None,
+        "_last_applied_preset": None,
+        "_metric_from_grid": False,
+        "_last_expr_synced_to_grid": "",
+        "_T_from_grid": False,
+        "_last_T_synced_to_grid": "",
+        "efe_config": None,
+        # Widget keys
+        "_lambda_input": "0",
+        "_kappa_input": "8*pi*G",
+        "_metric_input": "diag(-1, 1, 1, 1)",
+        "_T_input": "0",
+        "_preset_select": "(none)",
+    }
+    for k, v in force_defaults.items():
+        st.session_state[k] = v
+    # Clear grid widget state
+    for key in list(st.session_state.keys()):
+        if key.startswith("mg_") or key.startswith("tg_"):
+            del st.session_state[key]
+    _wipe_tensors()
+
+
+# ---------------------------------------------------------------------------
+# Helpers: Expression ↔ Grid sync (shared by metric and T_μν)
 # ---------------------------------------------------------------------------
 
 def _grid_state_to_str(n: int, key_prefix: str = "mg") -> str:
-    """Reconstruct a metric expression string from grid cell session state."""
+    """Reconstruct a tensor expression string from grid cell session state."""
     grid = st.session_state.get(f"{key_prefix}_grid", {})
+    # Check if effectively diagonal (only valid for symmetric grids)
     is_diag = all(
         grid.get((i, j), "0").strip() in ("0", "")
         for i in range(n) for j in range(n) if i != j
@@ -195,12 +243,11 @@ def _sync_expr_to_grid(matrix, n: int, key_prefix: str = "mg") -> None:
         for j in range(i, n):
             val_str = str(matrix[i, j])
             st.session_state[grid_key][(i, j)] = val_str
-            # Setting the widget key directly overrides the displayed value
             st.session_state[f"{key_prefix}_{i}_{j}"] = val_str
 
 
 # ---------------------------------------------------------------------------
-# Sidebar — slim preset loader only
+# Sidebar
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
@@ -215,8 +262,6 @@ with st.sidebar:
 
     _last = st.session_state.get("_last_applied_preset")
 
-    # Only apply when the selection actually changes — prevents re-firing on
-    # every Streamlit rerun (e.g. when the user clicks a checkbox elsewhere).
     if preset_choice != "(none)" and preset_choice != _last:
         p = PRESETS[preset_choice]
         st.session_state["lambda_str"]   = p["lambda_str"]
@@ -226,15 +271,45 @@ with st.sidebar:
         st.session_state["signature"]    = p["signature"]
         st.session_state["coords_str"]   = p["coords"]
         st.session_state["metric_str"]   = p["metric"]
-        # Keep text area and grid in sync with the new preset
+        # Keep text areas and grids in sync with the new preset
         st.session_state["_metric_input"] = p["metric"]
-        st.session_state["_last_expr_synced_to_grid"] = ""  # force grid refresh
+        st.session_state["_T_input"]      = p["T_str"]
+        st.session_state["_last_expr_synced_to_grid"] = ""  # force metric grid refresh
+        st.session_state["_last_T_synced_to_grid"]    = ""  # force T grid refresh
         st.session_state["_metric_from_grid"] = False
+        st.session_state["_T_from_grid"]      = False
         st.session_state["_last_applied_preset"] = preset_choice
         _wipe_tensors()
     elif preset_choice == "(none)":
-        # Reset tracker so user can re-select the same preset later if needed
         st.session_state["_last_applied_preset"] = None
+
+    st.divider()
+
+    if st.button("Reset to defaults", help="Clear all inputs and return to Minkowski defaults."):
+        _reset_to_defaults()
+        st.rerun()
+
+    st.divider()
+
+    st.subheader("Display")
+    font_pct = st.slider(
+        "Text size",
+        min_value=90,
+        max_value=150,
+        value=st.session_state.get("_font_pct", 100),
+        step=5,
+        format="%d%%",
+        key="_font_pct_slider",
+        help="Scale the text size of the main content area.",
+    )
+    st.session_state["_font_pct"] = font_pct
+    # Inject CSS for text scaling
+    st.markdown(
+        f"<style>"
+        f"section[data-testid='stMain'] .block-container {{ font-size: {font_pct}%; }}"
+        f"</style>",
+        unsafe_allow_html=True,
+    )
 
 # ---------------------------------------------------------------------------
 # ── Section 1: EFE Setup ────────────────────────────────────────────────────
@@ -246,9 +321,11 @@ st.caption(
 )
 
 render_efe_banner()
-st.markdown("")  # small spacing
+st.markdown("")
 
 lambda_str, kappa_str, T_str = render_efe_controls()
+
+render_constants_helper()
 
 st.markdown("**Resulting equation:**")
 render_efe_result(lambda_str, kappa_str, T_str)
@@ -266,12 +343,12 @@ coords_str, metric_hint = render_coord_config()
 st.divider()
 
 # ---------------------------------------------------------------------------
-# ── Section 3: Metric Ansatz ────────────────────────────────────────────────
+# ── Section 3: Metric Ansatz + Stress-Energy Tensor ────────────────────────
 # ---------------------------------------------------------------------------
 
 st.header("3 · Metric Ansatz")
 
-# -- Parse coords first (needed by both metric input modes)
+# -- Parse coords first (needed by both metric and T input modes)
 _parse_ok = True
 try:
     _coord_syms = parse_coords(coords_str)
@@ -280,7 +357,7 @@ except ValueError as e:
     _coord_syms = []
     _parse_ok = False
 
-# -- Sync grid → expression (must happen before the text area renders)
+# ── Metric: sync grid → expression (must happen before text area renders) ──
 if st.session_state.get("_metric_from_grid", False) and _coord_syms:
     _n = len(_coord_syms)
     _grid_str = _grid_state_to_str(_n)
@@ -325,7 +402,7 @@ with tab_expr:
             st.error(f"Metric error: {e}")
             _parse_ok = False
 
-    # Sync expression → grid when the expression changes
+    # Sync expression → metric grid when expression changes
     if _parse_ok and _metric_preview is not None and _coord_syms:
         if metric_input != st.session_state.get("_last_expr_synced_to_grid", ""):
             _sync_expr_to_grid(_metric_preview, len(_coord_syms))
@@ -347,6 +424,73 @@ with tab_grid:
 if _metric_preview is not None:
     with st.expander("Parsed metric preview", expanded=True):
         display_metric_preview(_metric_preview, _coord_syms)
+
+# ---------------------------------------------------------------------------
+# ── Section 3b: Stress-Energy Tensor T_μν ──────────────────────────────────
+# ---------------------------------------------------------------------------
+
+st.subheader("Stress-Energy Tensor T_μν")
+st.caption(
+    "Enter the stress-energy tensor. Use 0 for vacuum. "
+    "Unknown functions are auto-declared. "
+    "Typical forms: `diag(rho, p, p, p)` or `Matrix([[rho,0,0,0],[0,p,0,0],...])`. "
+    "T_μν is assumed symmetric (lower triangle mirrors automatically)."
+)
+
+# ── T_μν: sync grid → expression (before text area renders) ──
+if st.session_state.get("_T_from_grid", False) and _coord_syms:
+    _n = len(_coord_syms)
+    _T_grid_str = _grid_state_to_str(_n, key_prefix="tg")
+    st.session_state["_T_input"] = _T_grid_str
+    st.session_state["T_str"]    = _T_grid_str
+    st.session_state["_T_from_grid"] = False
+    st.session_state["_last_T_synced_to_grid"] = _T_grid_str
+
+tab_T_expr, tab_T_grid = st.tabs(["Expression", "Grid"])
+
+_T_preview = None
+_T_parse_ok = True
+
+with tab_T_expr:
+    T_default = st.session_state.get("T_str", "0")
+    T_input = st.text_area(
+        "T_μν  (stress-energy tensor)",
+        value=T_default,
+        height=90,
+        key="_T_input",
+        placeholder="0  or  diag(rho, p, p, p)",
+        help=(
+            "Stress-energy tensor. Enter 0 for vacuum, or a matrix expression.\n"
+            "E.g.  diag(rho, p, p, p)  or  Matrix([[rho,0,0,0],[0,p,0,0],...])"
+        ),
+    )
+    st.session_state["T_str"] = T_input
+    T_str = T_input  # update local var for efe_result re-check below
+
+    # Try parsing T for the grid sync (only if non-zero and coords available)
+    if _parse_ok and _coord_syms and T_input.strip() not in ("0", ""):
+        try:
+            _T_preview = parse_metric(T_input, _coord_syms)
+        except ValueError:
+            _T_parse_ok = False
+        # Sync expression → T grid when expression changes
+        if _T_parse_ok and _T_preview is not None:
+            if T_input != st.session_state.get("_last_T_synced_to_grid", ""):
+                _sync_expr_to_grid(_T_preview, len(_coord_syms), key_prefix="tg")
+                st.session_state["_last_T_synced_to_grid"] = T_input
+
+with tab_T_grid:
+    if not _parse_ok or not _coord_syms:
+        st.warning("Fix coordinate errors first.")
+    else:
+        n_dim = len(_coord_syms)
+        _T_from_grid_result = render_metric_grid(
+            n_dim,
+            _coord_syms,
+            key_prefix="tg",
+            symmetric=True,
+            changed_flag="_T_from_grid",
+        )
 
 # -- Compute button
 compute_clicked = st.button("Compute", type="primary", disabled=not _parse_ok)
@@ -409,7 +553,6 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
                     st.error(f"Christoffel computation failed: {e}")
 
         if st.session_state["christoffel"] is not None:
-            # -- View options
             opt_cols = st.columns([1, 1, 1, 2])
             with opt_cols[0]:
                 chk_drill = st.checkbox(
@@ -428,7 +571,6 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
                 )
 
             if chk_drill:
-                # Compute derivation steps if needed
                 if st.session_state["christoffel_steps"] is None:
                     with st.spinner("Computing derivation steps…"):
                         try:
@@ -448,7 +590,6 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
                     )
             else:
                 if chk_show_zero:
-                    # Show all components including zeros
                     from ui.display import display_rank3_all
                     display_rank3_all(st.session_state["christoffel"], st_obj.coords)
                 else:
@@ -456,7 +597,6 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
                         st.session_state["christoffel"], st_obj.coords
                     )
 
-            # -- Export
             st.divider()
             _latex_out = build_full_latex(
                 coords=st_obj.coords,
@@ -509,7 +649,6 @@ with st.expander("Riemann Tensor  R^ρ_σμν"):
                     with st.spinner("Computing Riemann derivation steps…"):
                         try:
                             from core.derivation import riemann_steps as _riem_steps
-                            # Christoffel must be available for Riemann steps
                             if st.session_state["christoffel"] is None:
                                 st.session_state["christoffel"] = st_obj.christoffel(
                                     simplified=simplified
@@ -600,7 +739,6 @@ with st.expander("Einstein Tensor  G_μν"):
 
 # ---- Field equations -------------------------------------------------------
 
-# Build expander title reflecting EFE config
 def _efe_title() -> str:
     lam = st.session_state.get("lambda_str", "0").strip()
     T   = st.session_state.get("T_str", "0").strip()
@@ -621,7 +759,6 @@ with st.expander(_efe_title()):
     if st_obj is None:
         _need_compute_msg()
     else:
-        # Ensure Einstein tensor is available
         if st.session_state["einstein"] is None:
             with st.spinner("Computing Einstein tensor for field equations…"):
                 try:
@@ -638,7 +775,6 @@ with st.expander(_efe_title()):
                 if gen_eqs or st.session_state["field_eqs"] is None:
                     from core.system import field_equations
 
-                    # Build RHS tensor from EFE config
                     rhs_tensor = None
                     lam = st.session_state.get("lambda_str", "0").strip()
                     T   = st.session_state.get("T_str", "0").strip()
@@ -646,7 +782,6 @@ with st.expander(_efe_title()):
                     T_zero   = T   in ("0", "")
 
                     if not (lam_zero and T_zero):
-                        # Non-vacuum: build per-component RHS
                         try:
                             rhs_tensor = build_rhs_tensor(
                                 lambda_str=st.session_state.get("lambda_str", "0"),
@@ -721,8 +856,12 @@ with st.expander(_efe_title()):
                             st.warning("No constraints entered.")
 
                     if st.session_state["constrained_eqs"] is not None:
+                        n_field = len(st.session_state["field_eqs"])
                         st.subheader("Reduced equations")
-                        display_equations(st.session_state["constrained_eqs"])
+                        display_equations(
+                            st.session_state["constrained_eqs"],
+                            start_index=n_field + 1,
+                        )
 
 # ---------------------------------------------------------------------------
 # ── Full derivation export ──────────────────────────────────────────────────
@@ -746,6 +885,7 @@ if _st_obj is not None:
         ricci_scalar=st.session_state.get("ricci_scalar"),
         einstein=st.session_state.get("einstein"),
         field_eqs=st.session_state.get("field_eqs"),
+        constrained_eqs=st.session_state.get("constrained_eqs"),
         lambda_str=st.session_state.get("lambda_str", "0"),
         kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
         T_str=st.session_state.get("T_str", "0"),

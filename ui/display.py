@@ -207,9 +207,18 @@ def display_scalar(expr, name: str) -> None:
     st.latex(rf"{name} = {latex(expr)}")
 
 
-def display_equations(eqs: list) -> None:
+def display_equations(eqs: list, start_index: int = 1) -> None:
     """
     Render a numbered list of equations as LaTeX.
+
+    Parameters
+    ----------
+    eqs : list of sympy.Eq
+        Equations to display.
+    start_index : int
+        Number of the first equation (default 1). Pass a higher value to
+        continue numbering from a previous block (e.g. constrained equations
+        continuing after field equations).
 
     Shows a success message if the list is empty (all equations satisfied).
     """
@@ -217,7 +226,7 @@ def display_equations(eqs: list) -> None:
         st.success("All equations are satisfied (0 remaining).")
         return
 
-    for i, eq in enumerate(eqs, start=1):
+    for i, eq in enumerate(eqs, start=start_index):
         from sympy import Eq
         lhs_str = latex(eq.lhs)
         rhs_str = latex(eq.rhs)
