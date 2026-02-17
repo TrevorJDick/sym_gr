@@ -140,6 +140,8 @@ def _init_state() -> None:
         "efe_config": None,
         # Signature change info message (None = no message)
         "_sig_info": None,
+        # Ansatz builder constraint text
+        "_ansatz_constraint_text": "",
         # Expander open/closed state — persists across reruns
         "_chri_expanded": False,
         "_riem_expanded": False,
@@ -214,6 +216,7 @@ def _reset_to_defaults() -> None:
         "_last_T_synced_to_grid": "",
         "efe_config": None,
         "_sig_info": None,
+        "_ansatz_constraint_text": "",
         # Widget keys
         "_lambda_input": "0",
         "_kappa_input": "8*pi*G",
@@ -495,6 +498,27 @@ if _sig != _old_sig:
 if st.session_state.get("_sig_info"):
     st.info(st.session_state["_sig_info"])
 
+# ── General ansatz button ───────────────────────────────────────────────────
+if _parse_ok and _coord_syms:
+    if st.button(
+        "Fill with general ansatz",
+        key="_gen_ansatz_btn",
+        help=(
+            "Populate the metric with symbolic components g_μν "
+            "(e.g. g_t_t, g_t_r, …). Then use 'Ansatz constraints' below "
+            "to apply symmetry reductions step by step."
+        ),
+    ):
+        from core.ansatz import generate_metric_symbols
+        from ui.metric_grid import _matrix_to_str as _mts
+        _gen_mat = generate_metric_symbols(_coord_syms)
+        _gen_str = _mts(_gen_mat, len(_coord_syms))
+        st.session_state["metric_str"] = _gen_str
+        st.session_state["_metric_input"] = _gen_str
+        st.session_state["_last_expr_synced_to_grid"] = ""
+        _wipe_tensors()
+        st.rerun()
+
 # ── Metric: sync grid → expression (must happen before text area renders) ──
 if st.session_state.get("_metric_from_grid", False) and _coord_syms:
     _n = len(_coord_syms)
@@ -562,6 +586,90 @@ with tab_grid:
 if _metric_preview is not None:
     with st.expander("Parsed metric preview", expanded=True):
         display_metric_preview(_metric_preview, _coord_syms)
+
+# ── Ansatz constraints ──────────────────────────────────────────────────────
+with st.expander("Ansatz constraints", expanded=False):
+    st.caption(
+        "Apply algebraic constraints to reduce the metric step by step. "
+        "Enter one constraint per line using the same ``LHS = RHS`` syntax as "
+        "field-equation constraints. Use **Fill with general ansatz** above to "
+        "start from the fully general symbolic metric, then reduce here."
+    )
+
+    _ac_cols = st.columns([1, 1, 3])
+    with _ac_cols[0]:
+        _diag_btn = st.button(
+            "Diagonal",
+            key="_ansatz_diag_btn",
+            help="Pre-fill constraints that zero all off-diagonal components.",
+            disabled=_metric_preview is None,
+        )
+    with _ac_cols[1]:
+        _stat_btn = st.button(
+            "Stationary",
+            key="_ansatz_stat_btn",
+            help="Pre-fill constraints that zero all time–space cross terms (g_t_i = 0).",
+            disabled=_metric_preview is None,
+        )
+
+    if _diag_btn and _metric_preview is not None:
+        from core.ansatz import diagonal_constraints
+        _dc = diagonal_constraints(_metric_preview, _coord_syms)
+        if _dc:
+            st.session_state["_ansatz_constraint_text"] = "\n".join(
+                f"{eq.lhs} = {eq.rhs}" for eq in _dc
+            )
+        else:
+            st.info("Metric is already diagonal — no constraints needed.")
+
+    if _stat_btn and _metric_preview is not None:
+        from core.ansatz import stationary_constraints
+        _sc = stationary_constraints(_metric_preview, _coord_syms)
+        if _sc:
+            st.session_state["_ansatz_constraint_text"] = "\n".join(
+                f"{eq.lhs} = {eq.rhs}" for eq in _sc
+            )
+        else:
+            st.info("No time–space cross terms to zero.")
+
+    _ac_text = st.text_area(
+        "Constraints",
+        height=130,
+        key="_ansatz_constraint_text",
+        placeholder="g_t_r = 0\ng_t_t = -A(r)\ng_r_r = B(r)",
+        label_visibility="collapsed",
+    )
+
+    _apply_ac_btn = st.button(
+        "Apply to metric",
+        key="_apply_ansatz_btn",
+        type="primary",
+        disabled=_metric_preview is None,
+    )
+
+    if _apply_ac_btn and _metric_preview is not None:
+        _ac_lines = [ln.strip() for ln in _ac_text.splitlines() if ln.strip()]
+        _ac_parsed = []
+        _ac_err = False
+        for _ln in _ac_lines:
+            try:
+                _ac_parsed.append(parse_constraint(_ln, _coord_syms))
+            except ValueError as e:
+                st.error(f"Parse error on `{_ln}`: {e}")
+                _ac_err = True
+
+        if not _ac_err and _ac_parsed:
+            from core.ansatz import apply_metric_constraints
+            from ui.metric_grid import _matrix_to_str as _mts2
+            _reduced = apply_metric_constraints(_metric_preview, _ac_parsed, _coord_syms)
+            _reduced_str = _mts2(_reduced, len(_coord_syms))
+            st.session_state["metric_str"] = _reduced_str
+            st.session_state["_metric_input"] = _reduced_str
+            st.session_state["_last_expr_synced_to_grid"] = ""
+            _wipe_tensors()
+            st.rerun()
+        elif not _ac_lines:
+            st.warning("No constraints entered.")
 
 # -- Compute button
 compute_clicked = st.button("Compute", type="primary", disabled=not _parse_ok)
