@@ -73,14 +73,10 @@ def render_efe_controls() -> tuple[str, str, str]:
         st.session_state["kappa_str"] = kappa_str
 
     with col_T:
-        st.markdown("**T_μν**  (stress-energy)")
-        T_str = st.session_state.get("T_str", "0")
-        T_display = T_str.strip() or "0"
-        # Show a brief preview; truncate long expressions
-        preview = T_display[:35] + "…" if len(T_display) > 35 else T_display
-        st.code(preview, language=None)
-        st.caption("Configure in Section 3 ↓")
+        st.markdown("**T_μν**")
+        st.caption("stress-energy — configured below")
 
+    T_str = st.session_state.get("T_str", "0")
     return lambda_str, kappa_str, T_str
 
 

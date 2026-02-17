@@ -303,11 +303,9 @@ with st.sidebar:
         help="Scale the text size of the main content area.",
     )
     st.session_state["_font_pct"] = font_pct
-    # Inject CSS for text scaling
+    # Scale html root so all rem-based Streamlit text scales with it
     st.markdown(
-        f"<style>"
-        f"section[data-testid='stMain'] .block-container {{ font-size: {font_pct}%; }}"
-        f"</style>",
+        f"<style>html {{ font-size: {font_pct}%; }}</style>",
         unsafe_allow_html=True,
     )
 
@@ -326,6 +324,69 @@ st.markdown("")
 lambda_str, kappa_str, T_str = render_efe_controls()
 
 render_constants_helper()
+
+# ── T_μν: parse coords from session state (updated on prior rerun) ──────────
+_s1_coord_syms = []
+try:
+    _s1_coord_syms = parse_coords(st.session_state.get("coords_str", "t, x, y, z"))
+except Exception:
+    pass
+_s1_n = len(_s1_coord_syms) if _s1_coord_syms else 4
+
+# Sync T grid → expression (must happen before the text area renders)
+if st.session_state.get("_T_from_grid", False) and _s1_coord_syms:
+    _T_grid_str = _grid_state_to_str(_s1_n, key_prefix="tg")
+    st.session_state["_T_input"] = _T_grid_str
+    st.session_state["T_str"]    = _T_grid_str
+    st.session_state["_T_from_grid"] = False
+    st.session_state["_last_T_synced_to_grid"] = _T_grid_str
+
+st.markdown("**Stress-Energy Tensor T_μν**")
+st.caption(
+    "Enter 0 for vacuum. Typical forms: `diag(rho, p, p, p)` or "
+    "`Matrix([[rho,0,0,0],[0,p,0,0],...])`. T_μν is symmetric — "
+    "lower triangle mirrors automatically in the Grid tab."
+)
+
+tab_T_expr, tab_T_grid = st.tabs(["Expression", "Grid"])
+
+with tab_T_expr:
+    T_input = st.text_area(
+        "T_μν",
+        value=st.session_state.get("T_str", "0"),
+        height=90,
+        key="_T_input",
+        placeholder="0  or  diag(rho, p, p, p)",
+        help=(
+            "Stress-energy tensor. Enter 0 for vacuum, or a matrix expression.\n"
+            "E.g.  diag(rho, p, p, p)  or  Matrix([[rho,0,0,0],[0,p,0,0],...])"
+        ),
+        label_visibility="collapsed",
+    )
+    st.session_state["T_str"] = T_input
+    T_str = T_input
+
+    # Sync expression → T grid when expression changes
+    if _s1_coord_syms and T_input.strip() not in ("0", ""):
+        try:
+            _T_preview_s1 = parse_metric(T_input, _s1_coord_syms)
+            if T_input != st.session_state.get("_last_T_synced_to_grid", ""):
+                _sync_expr_to_grid(_T_preview_s1, _s1_n, key_prefix="tg")
+                st.session_state["_last_T_synced_to_grid"] = T_input
+        except ValueError:
+            pass
+
+with tab_T_grid:
+    if not _s1_coord_syms:
+        st.caption("Set coordinates in Section 2 first, then return here.")
+    else:
+        render_metric_grid(
+            _s1_n,
+            _s1_coord_syms,
+            key_prefix="tg",
+            symmetric=True,
+            changed_flag="_T_from_grid",
+        )
 
 st.markdown("**Resulting equation:**")
 render_efe_result(lambda_str, kappa_str, T_str)
@@ -424,73 +485,6 @@ with tab_grid:
 if _metric_preview is not None:
     with st.expander("Parsed metric preview", expanded=True):
         display_metric_preview(_metric_preview, _coord_syms)
-
-# ---------------------------------------------------------------------------
-# ── Section 3b: Stress-Energy Tensor T_μν ──────────────────────────────────
-# ---------------------------------------------------------------------------
-
-st.subheader("Stress-Energy Tensor T_μν")
-st.caption(
-    "Enter the stress-energy tensor. Use 0 for vacuum. "
-    "Unknown functions are auto-declared. "
-    "Typical forms: `diag(rho, p, p, p)` or `Matrix([[rho,0,0,0],[0,p,0,0],...])`. "
-    "T_μν is assumed symmetric (lower triangle mirrors automatically)."
-)
-
-# ── T_μν: sync grid → expression (before text area renders) ──
-if st.session_state.get("_T_from_grid", False) and _coord_syms:
-    _n = len(_coord_syms)
-    _T_grid_str = _grid_state_to_str(_n, key_prefix="tg")
-    st.session_state["_T_input"] = _T_grid_str
-    st.session_state["T_str"]    = _T_grid_str
-    st.session_state["_T_from_grid"] = False
-    st.session_state["_last_T_synced_to_grid"] = _T_grid_str
-
-tab_T_expr, tab_T_grid = st.tabs(["Expression", "Grid"])
-
-_T_preview = None
-_T_parse_ok = True
-
-with tab_T_expr:
-    T_default = st.session_state.get("T_str", "0")
-    T_input = st.text_area(
-        "T_μν  (stress-energy tensor)",
-        value=T_default,
-        height=90,
-        key="_T_input",
-        placeholder="0  or  diag(rho, p, p, p)",
-        help=(
-            "Stress-energy tensor. Enter 0 for vacuum, or a matrix expression.\n"
-            "E.g.  diag(rho, p, p, p)  or  Matrix([[rho,0,0,0],[0,p,0,0],...])"
-        ),
-    )
-    st.session_state["T_str"] = T_input
-    T_str = T_input  # update local var for efe_result re-check below
-
-    # Try parsing T for the grid sync (only if non-zero and coords available)
-    if _parse_ok and _coord_syms and T_input.strip() not in ("0", ""):
-        try:
-            _T_preview = parse_metric(T_input, _coord_syms)
-        except ValueError:
-            _T_parse_ok = False
-        # Sync expression → T grid when expression changes
-        if _T_parse_ok and _T_preview is not None:
-            if T_input != st.session_state.get("_last_T_synced_to_grid", ""):
-                _sync_expr_to_grid(_T_preview, len(_coord_syms), key_prefix="tg")
-                st.session_state["_last_T_synced_to_grid"] = T_input
-
-with tab_T_grid:
-    if not _parse_ok or not _coord_syms:
-        st.warning("Fix coordinate errors first.")
-    else:
-        n_dim = len(_coord_syms)
-        _T_from_grid_result = render_metric_grid(
-            n_dim,
-            _coord_syms,
-            key_prefix="tg",
-            symmetric=True,
-            changed_flag="_T_from_grid",
-        )
 
 # -- Compute button
 compute_clicked = st.button("Compute", type="primary", disabled=not _parse_ok)
