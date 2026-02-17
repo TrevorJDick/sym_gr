@@ -326,9 +326,6 @@ lambda_str, kappa_str, T_str = render_efe_controls()
 
 render_constants_helper()
 
-st.markdown("**Resulting equation:**")
-render_efe_result(lambda_str, kappa_str, T_str)
-
 st.divider()
 
 # ---------------------------------------------------------------------------
@@ -410,6 +407,9 @@ with tab_T_grid:
             symmetric=True,
             changed_flag="_T_from_grid",
         )
+
+st.markdown("**Resulting equation:**")
+render_efe_result(lambda_str, kappa_str, T_str)
 
 st.divider()
 
