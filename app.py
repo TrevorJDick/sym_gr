@@ -915,10 +915,49 @@ with st.expander(
                     if st.session_state["constrained_eqs"] is not None:
                         n_field = len(st.session_state["field_eqs"])
                         st.subheader("Reduced equations")
-                        display_equations(
-                            st.session_state["constrained_eqs"],
-                            start_index=n_field + 1,
+                        _simp_steps_cb = st.checkbox(
+                            "Show simplification stages",
+                            key="_chk_simp_steps",
+                            help=(
+                                "For each remaining equation, run cancel → trigsimp → simplify "
+                                "and show which steps change the expression. Slow on large systems."
+                            ),
                         )
+                        if _simp_steps_cb:
+                            from core.constraints import simplify_equation_steps
+                            from sympy import latex as _sp_latex
+                            for _idx, _eq in enumerate(
+                                st.session_state["constrained_eqs"],
+                                start=n_field + 1,
+                            ):
+                                st.markdown(f"**Equation {_idx}:**")
+                                st.latex(
+                                    rf"({_idx})\quad "
+                                    + _sp_latex(_eq.lhs)
+                                    + " = "
+                                    + _sp_latex(_eq.rhs)
+                                )
+                                with st.spinner(f"Simplifying equation {_idx}…"):
+                                    _s_steps = simplify_equation_steps(_eq)
+                                if not _s_steps:
+                                    st.success("Already zero — satisfied identically.")
+                                else:
+                                    st.caption("LHS − RHS after each stage:")
+                                    for _step_label, _step_expr in _s_steps:
+                                        _step_latex = _sp_latex(_step_expr)
+                                        _is_zero = _step_expr == 0
+                                        _icon = "✓ zero" if _is_zero else ""
+                                        st.markdown(
+                                            f"&nbsp;&nbsp;**{_step_label}**: "
+                                            f"$\\displaystyle {_step_latex}$ {_icon}"
+                                        )
+                                    if _s_steps and _s_steps[-1][1] != 0:
+                                        st.warning("Not reduced to zero by available simplifications.")
+                        else:
+                            display_equations(
+                                st.session_state["constrained_eqs"],
+                                start_index=n_field + 1,
+                            )
 
 # Trigger a rerun whenever a tensor computed for the first time this pass,
 # so the updated expanded= flags take effect immediately.

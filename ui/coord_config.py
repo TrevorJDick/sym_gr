@@ -97,6 +97,8 @@ def render_coord_config() -> tuple[str, str]:
             hint = preset_data.get(hint_key)
             if hint:
                 st.session_state["metric_str"] = hint
+                st.session_state["_metric_input"] = hint
+                st.session_state["_last_expr_synced_to_grid"] = ""
 
     with col_coords:
         coords_input = st.text_input(
@@ -126,6 +128,8 @@ def render_coord_config() -> tuple[str, str]:
         hint = preset_data.get(hint_key)
         if hint:
             st.session_state["metric_str"] = hint
+            st.session_state["_metric_input"] = hint
+            st.session_state["_last_expr_synced_to_grid"] = ""
 
     # --- Show coordinate transforms if preset has them
     preset_data = COORD_PRESETS.get(chosen, {})

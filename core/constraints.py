@@ -138,6 +138,54 @@ def apply_constraints(
     return result
 
 
+def simplify_equation_steps(eq: Eq) -> list[tuple[str, "Expr"]]:
+    """
+    Run a staged simplification on a single equation and return each step.
+
+    Works on the difference ``lhs - rhs``.  Applies the following
+    transformations in order, recording each stage that changes the expression:
+
+    1. ``cancel``  — cancel common polynomial factors in rational expressions.
+    2. ``trigsimp`` — apply trigonometric identities.
+    3. ``simplify`` — general black-box simplification.
+
+    Stops early if the expression reaches zero.
+
+    Parameters
+    ----------
+    eq : sympy.Eq
+
+    Returns
+    -------
+    list of (label, expr) pairs
+        Each pair contains a human-readable step name and the expression
+        ``lhs - rhs`` after that step.  Only steps that change the expression
+        are included.  If the expression is already zero, returns an empty list.
+    """
+    from sympy import cancel, trigsimp, simplify as sp_simplify, Integer
+
+    diff = eq.lhs - eq.rhs
+    if diff == Integer(0):
+        return []
+
+    steps: list[tuple[str, Expr]] = []
+    current = diff
+
+    for label, fn in [
+        ("cancel", cancel),
+        ("trigsimp", trigsimp),
+        ("simplify", sp_simplify),
+    ]:
+        result = fn(current)
+        if result != current:
+            steps.append((label, result))
+            current = result
+        if current == Integer(0):
+            break
+
+    return steps
+
+
 def filter_trivial(equations: list[Eq]) -> list[Eq]:
     """
     Remove equations of the form expr = expr (trivially satisfied).
