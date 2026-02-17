@@ -495,6 +495,95 @@ To obtain the explicit metric:
 
 
 # ---------------------------------------------------------------------------
+# Symmetry reduction narrative section
+# ---------------------------------------------------------------------------
+
+def _sec_symmetry_reductions(applied_symmetries: list, coords: list) -> str:
+    """
+    LaTeX section documenting the algebraic derivation behind each applied
+    symmetry reduction.  Included in the export when the user has used the
+    Symmetry reductions panel.
+    """
+    if not applied_symmetries:
+        return ""
+
+    t_sym = latex(coords[0])                       # time coordinate label
+    spatial = coords[1:]
+    spatial_str = ", ".join(latex(c) for c in spatial)
+
+    lines = [r"\section*{Symmetry Reductions}", ""]
+
+    # ---- Static (time-reversal) symmetry -----------------------------------
+    if "static" in applied_symmetries:
+        lines += [
+            r"\subsection*{Time-Reversal Symmetry and the Static Condition}",
+            "",
+            r"A spacetime is \textbf{static} if it is (i) stationary "
+            r"(time-independent, i.e.\ admits a timelike Killing vector "
+            r"$\partial_t$) and (ii) invariant under time-reversal. "
+            r"We derive the metric constraint that condition~(ii) imposes.",
+            "",
+            r"Consider the discrete diffeomorphism",
+            r"\begin{equation}",
+            rf"  \phi\colon \quad {t_sym} \;\longmapsto\; -{t_sym}, "
+            + (rf"\qquad {spatial_str} \;\longmapsto\; {spatial_str}." if spatial else ""),
+            r"\end{equation}",
+            r"The Jacobian matrix is",
+            r"\begin{equation}",
+            r"  \frac{\partial x^\alpha}{\partial x'^\mu} "
+            r"= \operatorname{diag}(-1,\underbrace{1,\ldots,1}_{n-1}).",
+            r"\end{equation}",
+            r"Since $g_{\mu\nu}$ is a covariant $(0,2)$ tensor it transforms as",
+            r"\begin{equation}",
+            r"  g'_{\mu\nu} = "
+            r"\frac{\partial x^\alpha}{\partial x'^\mu}"
+            r"\frac{\partial x^\beta}{\partial x'^\nu}\, g_{\alpha\beta}.",
+            r"\end{equation}",
+            r"Evaluating each block:",
+            r"\begin{align}",
+            rf"  g'_{{{t_sym}{t_sym}}} &= (-1)(-1)\,g_{{{t_sym}{t_sym}}} "
+            rf"= g_{{{t_sym}{t_sym}}} && \text{{(time-time: unchanged)}} \\",
+            rf"  g'_{{{t_sym}i}} &= (-1)(+1)\,g_{{{t_sym}i}} "
+            rf"= -g_{{{t_sym}i}} && \text{{($i$ spatial: sign reversal)}} \\",
+            r"  g'_{ij} &= (+1)(+1)\,g_{ij} "
+            r"= g_{ij} && \text{(space-space: unchanged)}",
+            r"\end{align}",
+            r"Imposing invariance $g'_{\mu\nu} = g_{\mu\nu}$:",
+            r"\begin{align}",
+            rf"  g_{{{t_sym}{t_sym}}} &= g_{{{t_sym}{t_sym}}} "
+            r"\quad \checkmark && \text{(no constraint)} \\",
+            rf"  g_{{{t_sym}i}} &= -g_{{{t_sym}i}} "
+            r"\;\Longrightarrow\; 2\,g_{ti} = 0 "
+            r"\;\Longrightarrow\; \boxed{g_{ti} = 0} "
+            r"&& \forall\,i \neq t \\",
+            r"  g_{ij} &= g_{ij} \quad \checkmark "
+            r"&& \text{(no constraint)}",
+            r"\end{align}",
+            r"\textbf{Conclusion:} time-reversal symmetry forces every "
+            r"time--space cross component to vanish.",
+            r"(Source: Carroll, \textit{Spacetime and Geometry}, \S3.8; "
+            r"Wald, \textit{General Relativity}, Ch.~6.)",
+            "",
+        ]
+
+    # ---- Diagonal metric ---------------------------------------------------
+    if "diagonal" in applied_symmetries:
+        lines += [
+            r"\subsection*{Diagonal Metric}",
+            "",
+            r"The metric was further restricted to \textbf{diagonal} form: "
+            r"$g_{\mu\nu} = 0$ for all $\mu \neq \nu$. "
+            r"This corresponds to choosing coordinates that are mutually "
+            r"orthogonal at every point of the manifold. "
+            r"Together with time-reversal symmetry (if applied) this "
+            r"eliminates all off-diagonal components.",
+            "",
+        ]
+
+    return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
 # Main assembler
 # ---------------------------------------------------------------------------
 
@@ -513,6 +602,7 @@ def build_full_latex(
     kappa_str: str = "8*pi*G",
     T_str: str = "0",
     signature: str = "-+++",
+    applied_symmetries: list | None = None,
 ) -> str:
     """Assemble a complete, narrative LaTeX document."""
     from sympy import Matrix as SMatrix
@@ -529,6 +619,8 @@ def build_full_latex(
 
     parts = [_latex_preamble("GR Tensor Derivation", subtitle)]
     parts.append(_sec_intro(coords, m, lambda_str, kappa_str, T_str, signature))
+    if applied_symmetries:
+        parts.append(_sec_symmetry_reductions(applied_symmetries, list(coords)))
     parts.append(_sec_metric(m, coords))
     parts.append(_sec_metric_inv(mi))
 
