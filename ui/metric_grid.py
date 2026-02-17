@@ -137,7 +137,44 @@ def render_metric_grid(
                 return None
             mat[i][j] = val
 
-    return Matrix(mat)
+    result = Matrix(mat)
+
+    # ── Preview + sync button
+    st.divider()
+    col_prev, col_btn = st.columns([3, 1])
+    with col_prev:
+        from sympy import latex as sp_latex
+        st.latex(sp_latex(result))
+    with col_btn:
+        expr_str = _matrix_to_str(result, n)
+        if st.button(
+            "Use this metric →",
+            key=f"{key_prefix}_use_btn",
+            help="Copy this metric into the Expression tab.",
+        ):
+            st.session_state["metric_str"] = expr_str
+            st.success("Copied to Expression tab.")
+
+    return result
+
+
+def _matrix_to_str(mat: "Matrix", n: int) -> str:
+    """Convert a SymPy Matrix to a diag(...) or Matrix([[...]]) string."""
+    from sympy import latex
+    # Check if diagonal
+    is_diag = all(
+        mat[i, j] == Integer(0)
+        for i in range(n) for j in range(n) if i != j
+    )
+    if is_diag:
+        diag_entries = ", ".join(str(mat[i, i]) for i in range(n))
+        return f"diag({diag_entries})"
+    # General matrix
+    rows = []
+    for i in range(n):
+        row = "[" + ", ".join(str(mat[i, j]) for j in range(n)) + "]"
+        rows.append(row)
+    return "Matrix([" + ", ".join(rows) + "])"
 
 
 def coords_label(coord_syms: list, i: int) -> str:
