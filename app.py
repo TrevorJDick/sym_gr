@@ -387,14 +387,18 @@ with tab_T_expr:
     T_str = T_input
 
     # Sync expression → T grid when expression changes
-    if _parse_ok and _coord_syms and T_input.strip() not in ("0", ""):
-        try:
-            _T_preview = parse_metric(T_input, _coord_syms)
-            if T_input != st.session_state.get("_last_T_synced_to_grid", ""):
-                _sync_expr_to_grid(_T_preview, len(_coord_syms), key_prefix="tg")
-                st.session_state["_last_T_synced_to_grid"] = T_input
-        except ValueError:
-            pass
+    if _parse_ok and _coord_syms:
+        if T_input != st.session_state.get("_last_T_synced_to_grid", ""):
+            if T_input.strip() in ("0", ""):
+                from sympy import zeros as _sp_zeros
+                _sync_expr_to_grid(_sp_zeros(len(_coord_syms)), len(_coord_syms), key_prefix="tg")
+            else:
+                try:
+                    _T_preview = parse_metric(T_input, _coord_syms)
+                    _sync_expr_to_grid(_T_preview, len(_coord_syms), key_prefix="tg")
+                except ValueError:
+                    pass
+            st.session_state["_last_T_synced_to_grid"] = T_input
 
 with tab_T_grid:
     if not _parse_ok or not _coord_syms:
@@ -406,6 +410,7 @@ with tab_T_grid:
             key_prefix="tg",
             symmetric=True,
             changed_flag="_T_from_grid",
+            default_diag="0",
         )
 
 st.markdown("**Resulting equation:**")

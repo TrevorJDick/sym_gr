@@ -28,6 +28,7 @@ def render_metric_grid(
     key_prefix: str = "mg",
     symmetric: bool = True,
     changed_flag: str = "_metric_from_grid",
+    default_diag: str = "1",
 ) -> Matrix | None:
     """
     Render an n×n tensor grid and return the parsed Matrix.
@@ -45,6 +46,10 @@ def render_metric_grid(
         If False: all cells independently editable.
     changed_flag : str
         Session state key to set True when any cell changes.
+    default_diag : str
+        Default string value for diagonal cells when the grid is first
+        created. Use "1" for the metric (Minkowski default) and "0" for
+        the stress-energy tensor (vacuum default).
 
     Returns
     -------
@@ -69,7 +74,7 @@ def render_metric_grid(
     if grid_key not in st.session_state:
         if symmetric:
             st.session_state[grid_key] = {
-                (i, j): ("1" if i == j else "0")
+                (i, j): (default_diag if i == j else "0")
                 for i in range(n)
                 for j in range(i, n)
             }
