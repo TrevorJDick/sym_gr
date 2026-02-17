@@ -138,6 +138,8 @@ def _init_state() -> None:
         "rhs_tensor": None,
         # EFE config snapshot used for field-eq title
         "efe_config": None,
+        # Signature change info message (None = no message)
+        "_sig_info": None,
         # Expander open/closed state — persists across reruns
         "_chri_expanded": False,
         "_riem_expanded": False,
@@ -211,6 +213,7 @@ def _reset_to_defaults() -> None:
         "_T_from_grid": False,
         "_last_T_synced_to_grid": "",
         "efe_config": None,
+        "_sig_info": None,
         # Widget keys
         "_lambda_input": "0",
         "_kappa_input": "8*pi*G",
@@ -299,6 +302,7 @@ with st.sidebar:
         st.session_state["_metric_from_grid"] = False
         st.session_state["_T_from_grid"]      = False
         st.session_state["_last_applied_preset"] = preset_choice
+        st.session_state["_sig_info"] = None
         _wipe_tensors()
     elif preset_choice == "(none)":
         st.session_state["_last_applied_preset"] = None
@@ -454,19 +458,42 @@ _sig = st.radio(
     key="_signature_radio",
     help=(
         "Sign convention for the metric. −+++ is standard in GR (Carroll, Wald, MTW). "
-        "Changing this updates the metric hint for the selected coordinate preset."
+        "Auto-updates the metric when it matches the coordinate-preset hint. "
+        "Custom or named-preset metrics (e.g. de Sitter) must be adjusted manually."
     ),
 )
 st.session_state["signature"] = _sig
+
 if _sig != _old_sig:
-    _preset_data = _COORD_PRESETS.get(st.session_state.get("coord_preset", ""), {})
-    _hint_key = "metric_diag_minus" if _sig == "-+++" else "metric_diag_plus"
-    _hint = _preset_data.get(_hint_key)
-    if _hint:
-        st.session_state["metric_str"] = _hint
-        st.session_state["_metric_input"] = _hint
+    _cp_data = _COORD_PRESETS.get(st.session_state.get("coord_preset", ""), {})
+    _old_hk  = "metric_diag_minus" if _old_sig == "-+++" else "metric_diag_plus"
+    _new_hk  = "metric_diag_minus" if _sig    == "-+++" else "metric_diag_plus"
+    _old_h   = _cp_data.get(_old_hk)
+    _new_h   = _cp_data.get(_new_hk)
+    _cur_m   = st.session_state.get("metric_str", "").strip()
+
+    if _new_h is None:
+        st.session_state["_sig_info"] = (
+            f"No standard metric hint is defined for this coordinate preset "
+            f"in **{_sig}** convention. Edit the metric manually."
+        )
+    elif _old_h is None or _cur_m != _old_h.strip():
+        # Metric is custom or from a named preset — don't overwrite it
+        st.session_state["_sig_info"] = (
+            f"Signature updated to **{_sig}**. Your metric was kept unchanged — "
+            f"adjust it manually for the new sign convention."
+        )
+    else:
+        # Metric matches the coord-preset hint → safe to auto-update
+        st.session_state["metric_str"] = _new_h
+        st.session_state["_metric_input"] = _new_h
         st.session_state["_last_expr_synced_to_grid"] = ""
+        st.session_state["_sig_info"] = None
+
     _wipe_tensors()
+
+if st.session_state.get("_sig_info"):
+    st.info(st.session_state["_sig_info"])
 
 # ── Metric: sync grid → expression (must happen before text area renders) ──
 if st.session_state.get("_metric_from_grid", False) and _coord_syms:
