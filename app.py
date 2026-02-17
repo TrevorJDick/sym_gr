@@ -3,11 +3,12 @@ app.py
 ------
 Streamlit UI for sym_gr — interactive symbolic GR tensor computation.
 
-Layout: linear main-area scroll with four sections:
-  1. EFE Setup      — configure the Einstein field equation (Λ, κ, T preview)
+Layout: linear main-area scroll with five sections:
+  1. EFE Setup      — configure Λ, κ, and the EFE form
   2. Coordinate System — choose coordinates and signature
-  3. Metric Ansatz + T_μν — enter / review the metric and stress-energy tensor
-  4. Results        — Christoffel, Riemann, Ricci, Einstein, field equations
+  3. Stress-Energy Tensor T_μν — enter T_μν in the chosen coordinate basis
+  4. Metric Ansatz  — enter / review the metric
+  5. Results        — Christoffel, Riemann, Ricci, Einstein, field equations
 
 Run with:
     streamlit run app.py
@@ -325,28 +326,50 @@ lambda_str, kappa_str, T_str = render_efe_controls()
 
 render_constants_helper()
 
-# ── T_μν: parse coords from session state (updated on prior rerun) ──────────
-_s1_coord_syms = []
+st.markdown("**Resulting equation:**")
+render_efe_result(lambda_str, kappa_str, T_str)
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# ── Section 2: Coordinate System ───────────────────────────────────────────
+# ---------------------------------------------------------------------------
+
+st.header("2 · Coordinate System")
+
+coords_str, metric_hint = render_coord_config()
+
+# Parse coords here — shared by Sections 3 (T_μν) and 4 (Metric)
+_parse_ok = True
 try:
-    _s1_coord_syms = parse_coords(st.session_state.get("coords_str", "t, x, y, z"))
-except Exception:
-    pass
-_s1_n = len(_s1_coord_syms) if _s1_coord_syms else 4
+    _coord_syms = parse_coords(coords_str)
+except ValueError as e:
+    st.error(f"Coordinate error: {e}")
+    _coord_syms = []
+    _parse_ok = False
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# ── Section 3: Stress-Energy Tensor T_μν ───────────────────────────────────
+# ---------------------------------------------------------------------------
+
+st.header("3 · Stress-Energy Tensor T_μν")
+st.caption(
+    "Enter T_μν in the coordinate basis defined above. "
+    "Use 0 for vacuum. Typical forms: `diag(rho, p, p, p)` or "
+    "`Matrix([[rho,0,0,0],[0,p,0,0],...])`. "
+    "T_μν is assumed symmetric — lower triangle mirrors in the Grid tab."
+)
 
 # Sync T grid → expression (must happen before the text area renders)
-if st.session_state.get("_T_from_grid", False) and _s1_coord_syms:
-    _T_grid_str = _grid_state_to_str(_s1_n, key_prefix="tg")
+if st.session_state.get("_T_from_grid", False) and _coord_syms:
+    _T_n = len(_coord_syms)
+    _T_grid_str = _grid_state_to_str(_T_n, key_prefix="tg")
     st.session_state["_T_input"] = _T_grid_str
     st.session_state["T_str"]    = _T_grid_str
     st.session_state["_T_from_grid"] = False
     st.session_state["_last_T_synced_to_grid"] = _T_grid_str
-
-st.markdown("**Stress-Energy Tensor T_μν**")
-st.caption(
-    "Enter 0 for vacuum. Typical forms: `diag(rho, p, p, p)` or "
-    "`Matrix([[rho,0,0,0],[0,p,0,0],...])`. T_μν is symmetric — "
-    "lower triangle mirrors automatically in the Grid tab."
-)
 
 tab_T_expr, tab_T_grid = st.tabs(["Expression", "Grid"])
 
@@ -367,56 +390,34 @@ with tab_T_expr:
     T_str = T_input
 
     # Sync expression → T grid when expression changes
-    if _s1_coord_syms and T_input.strip() not in ("0", ""):
+    if _parse_ok and _coord_syms and T_input.strip() not in ("0", ""):
         try:
-            _T_preview_s1 = parse_metric(T_input, _s1_coord_syms)
+            _T_preview = parse_metric(T_input, _coord_syms)
             if T_input != st.session_state.get("_last_T_synced_to_grid", ""):
-                _sync_expr_to_grid(_T_preview_s1, _s1_n, key_prefix="tg")
+                _sync_expr_to_grid(_T_preview, len(_coord_syms), key_prefix="tg")
                 st.session_state["_last_T_synced_to_grid"] = T_input
         except ValueError:
             pass
 
 with tab_T_grid:
-    if not _s1_coord_syms:
-        st.caption("Set coordinates in Section 2 first, then return here.")
+    if not _parse_ok or not _coord_syms:
+        st.warning("Fix coordinate errors above first.")
     else:
         render_metric_grid(
-            _s1_n,
-            _s1_coord_syms,
+            len(_coord_syms),
+            _coord_syms,
             key_prefix="tg",
             symmetric=True,
             changed_flag="_T_from_grid",
         )
 
-st.markdown("**Resulting equation:**")
-render_efe_result(lambda_str, kappa_str, T_str)
-
 st.divider()
 
 # ---------------------------------------------------------------------------
-# ── Section 2: Coordinate System ───────────────────────────────────────────
+# ── Section 4: Metric Ansatz ────────────────────────────────────────────────
 # ---------------------------------------------------------------------------
 
-st.header("2 · Coordinate System")
-
-coords_str, metric_hint = render_coord_config()
-
-st.divider()
-
-# ---------------------------------------------------------------------------
-# ── Section 3: Metric Ansatz + Stress-Energy Tensor ────────────────────────
-# ---------------------------------------------------------------------------
-
-st.header("3 · Metric Ansatz")
-
-# -- Parse coords first (needed by both metric and T input modes)
-_parse_ok = True
-try:
-    _coord_syms = parse_coords(coords_str)
-except ValueError as e:
-    st.error(f"Coordinate error: {e}")
-    _coord_syms = []
-    _parse_ok = False
+st.header("4 · Metric Ansatz")
 
 # ── Metric: sync grid → expression (must happen before text area renders) ──
 if st.session_state.get("_metric_from_grid", False) and _coord_syms:
@@ -520,7 +521,7 @@ st.divider()
 # ── Section 4: Results ──────────────────────────────────────────────────────
 # ---------------------------------------------------------------------------
 
-st.header("4 · Results")
+st.header("5 · Results")
 
 
 def _get_spacetime():
