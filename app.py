@@ -85,6 +85,40 @@ PRESETS: dict[str, dict] = {
         "coords": "t, r, theta, phi",
         "metric": "diag(-1, 1, r**2, r**2*sin(theta)**2)",
     },
+    "FLRW (flat)": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "diag(rho, p*a(t)**2, p*a(t)**2*r**2, p*a(t)**2*r**2*sin(theta)**2)",
+        "coord_preset": "Spherical 4D",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": "diag(-1, a(t)**2, a(t)**2*r**2, a(t)**2*r**2*sin(theta)**2)",
+    },
+    "Anti-de Sitter": {
+        "lambda_str": "-3/L**2",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Cartesian 4D",
+        "signature": "-+++",
+        "coords": "t, z, x, y",
+        "metric": "diag(-L**2/z**2, L**2/z**2, L**2/z**2, L**2/z**2)",
+    },
+    "Kerr": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Spherical 4D",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": (
+            "Matrix(["
+            "[-(1 - 2*M*r/(r**2 + a**2*cos(theta)**2)), 0, 0, -2*M*a*r*sin(theta)**2/(r**2 + a**2*cos(theta)**2)], "
+            "[0, (r**2 + a**2*cos(theta)**2)/(r**2 - 2*M*r + a**2), 0, 0], "
+            "[0, 0, r**2 + a**2*cos(theta)**2, 0], "
+            "[-2*M*a*r*sin(theta)**2/(r**2 + a**2*cos(theta)**2), 0, 0, "
+            "(r**2 + a**2 + 2*M*a**2*r*sin(theta)**2/(r**2 + a**2*cos(theta)**2))*sin(theta)**2]])"
+        ),
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -241,24 +275,34 @@ def _reset_to_defaults() -> None:
 # ---------------------------------------------------------------------------
 
 def _grid_state_to_str(n: int, key_prefix: str = "mg") -> str:
-    """Reconstruct a tensor expression string from grid cell session state."""
+    """Reconstruct a tensor expression string from grid cell session state.
+
+    Prefers individual widget session-state keys (e.g. ``mg_0_0``) over the
+    persistent ``mg_grid`` dict, because Streamlit writes the new widget value
+    to the individual key *before* the script reruns, whereas the dict is only
+    updated inside ``render_metric_grid`` which runs later in the script.
+    """
     grid = st.session_state.get(f"{key_prefix}_grid", {})
-    # Check if effectively diagonal (only valid for symmetric grids)
+
+    def _cell(i: int, j: int) -> str:
+        # For symmetric grids the editable widget is always at (min, max).
+        ui, uj = min(i, j), max(i, j)
+        widget_key = f"{key_prefix}_{ui}_{uj}"
+        if widget_key in st.session_state:
+            v = st.session_state[widget_key]
+            return (v or "0").strip() or "0"
+        return (grid.get((ui, uj), "0") or "0").strip() or "0"
+
     is_diag = all(
-        grid.get((i, j), "0").strip() in ("0", "")
+        _cell(i, j) in ("0", "")
         for i in range(n) for j in range(n) if i != j
     )
     if is_diag:
-        entries = ", ".join(
-            grid.get((i, i), "0").strip() or "0" for i in range(n)
-        )
+        entries = ", ".join(_cell(i, i) for i in range(n))
         return f"diag({entries})"
     rows = []
     for i in range(n):
-        row = "[" + ", ".join(
-            grid.get((min(i, j), max(i, j)), "0").strip() or "0"
-            for j in range(n)
-        ) + "]"
+        row = "[" + ", ".join(_cell(i, j) for j in range(n)) + "]"
         rows.append(row)
     return "Matrix([" + ", ".join(rows) + "])"
 

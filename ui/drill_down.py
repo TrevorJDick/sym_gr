@@ -24,7 +24,14 @@ def _tex(sym) -> str:
 
 
 def _coord_tex(coords: list, i: int) -> str:
-    return latex(coords[i])
+    """Return the LaTeX representation of coordinate i.
+
+    Multi-character LaTeX commands (e.g. ``\\theta``, ``\\phi``) are wrapped
+    in braces so that concatenating several coordinates in a subscript group
+    does not merge them into an invalid command (e.g. ``\\thetatr``).
+    """
+    tex = latex(coords[i])
+    return f"{{{tex}}}" if "\\" in tex else tex
 
 
 def _chri_label(coords, sigma, mu, nu, value) -> str:
