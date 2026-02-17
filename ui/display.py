@@ -54,7 +54,40 @@ def display_rank3_nonzero(tensor: ImmutableDenseNDimArray, coords: list) -> None
             st.latex(r" \\ ".join(group_lines))
 
     if not any_nonzero:
-        st.info("All components are zero.")
+        st.info("All Christoffel symbols are zero.")
+
+
+def display_rank3_all(tensor: ImmutableDenseNDimArray, coords: list) -> None:
+    """
+    Display ALL Christoffel components (μ ≤ ν), including zeros.
+
+    Zero entries are shown dimmed.
+    """
+    n = tensor.shape[0]
+    for sigma in range(n):
+        sig_lbl = _coord_label(coords[sigma])
+        lines: list[tuple[str, bool]] = []
+        for mu in range(n):
+            for nu in range(mu, n):
+                val = tensor[sigma, mu, nu]
+                mu_lbl = _coord_label(coords[mu])
+                nu_lbl = _coord_label(coords[nu])
+                lhs = rf"\Gamma^{{{sig_lbl}}}_{{{mu_lbl} {nu_lbl}}}"
+                lines.append((rf"{lhs} = {latex(val)}", val == 0))
+
+        if lines:
+            # Render nonzero first as normal LaTeX, zeros as a dimmed block
+            nonzero = [l for l, z in lines if not z]
+            zero    = [l for l, z in lines if z]
+            if nonzero:
+                st.latex(r" \\ ".join(nonzero))
+            if zero:
+                st.markdown(
+                    '<span style="opacity:0.4;">'
+                    + r" $\quad$ ".join(f"${l}$" for l in zero)
+                    + "</span>",
+                    unsafe_allow_html=True,
+                )
 
 
 def display_rank4_nonzero(tensor: ImmutableDenseNDimArray, coords: list) -> None:
@@ -86,7 +119,39 @@ def display_rank4_nonzero(tensor: ImmutableDenseNDimArray, coords: list) -> None
                 st.latex(r" \\ ".join(group_lines))
 
     if not any_nonzero:
-        st.info("All components are zero.")
+        st.info("All Riemann components are zero.")
+
+
+def display_rank4_all(tensor: ImmutableDenseNDimArray, coords: list) -> None:
+    """
+    Display ALL Riemann components (μ < ν), including zeros.
+    """
+    n = tensor.shape[0]
+    for rho in range(n):
+        for sigma in range(n):
+            lines: list[tuple[str, bool]] = []
+            for mu in range(n):
+                for nu in range(mu + 1, n):
+                    val = tensor[rho, sigma, mu, nu]
+                    rho_lbl = _coord_label(coords[rho])
+                    sig_lbl = _coord_label(coords[sigma])
+                    mu_lbl  = _coord_label(coords[mu])
+                    nu_lbl  = _coord_label(coords[nu])
+                    lhs = rf"R^{{{rho_lbl}}}_{{{sig_lbl} {mu_lbl} {nu_lbl}}}"
+                    lines.append((rf"{lhs} = {latex(val)}", val == 0))
+
+            if lines:
+                nonzero = [l for l, z in lines if not z]
+                zero    = [l for l, z in lines if z]
+                if nonzero:
+                    st.latex(r" \\ ".join(nonzero))
+                if zero:
+                    st.markdown(
+                        '<span style="opacity:0.4;">'
+                        + r" $\quad$ ".join(f"${l}$" for l in zero)
+                        + "</span>",
+                        unsafe_allow_html=True,
+                    )
 
 
 def display_rank2_nonzero(
@@ -94,9 +159,10 @@ def display_rank2_nonzero(
     coords: list,
     name: str,
     symmetry: bool = True,
+    show_zeros: bool = False,
 ) -> None:
     """
-    Display non-zero components of a rank-2 tensor (Ricci or Einstein).
+    Display components of a rank-2 tensor (Ricci or Einstein).
 
     Parameters
     ----------
@@ -104,29 +170,35 @@ def display_rank2_nonzero(
         LaTeX base name, e.g. ``"R"`` or ``"G"``.
     symmetry : bool
         If True, only show upper triangle (μ ≤ ν).
+    show_zeros : bool
+        If True, also show zero components (dimmed).
     """
     n = tensor.shape[0]
     any_nonzero = False
-    lines: list[str] = []
+    zero_lines: list[str] = []
 
     for mu in range(n):
         nu_range = range(mu, n) if symmetry else range(n)
         for nu in nu_range:
             val = tensor[mu, nu]
-            if val == 0:
-                continue
-            any_nonzero = True
             mu_lbl = _coord_label(coords[mu])
             nu_lbl = _coord_label(coords[nu])
             lhs = rf"{name}_{{{mu_lbl} {nu_lbl}}}"
-            lines.append(rf"{lhs} = {latex(val)}")
+            if val == 0:
+                zero_lines.append(rf"{lhs} = 0")
+                continue
+            any_nonzero = True
+            st.latex(rf"{lhs} = {latex(val)}")
 
-    if lines:
-        # Show in batches to avoid LaTeX that's too wide
-        for line in lines:
-            st.latex(line)
+    if show_zeros and zero_lines:
+        st.markdown(
+            '<span style="opacity:0.4;">'
+            + r" $\quad$ ".join(f"${l}$" for l in zero_lines)
+            + "</span>",
+            unsafe_allow_html=True,
+        )
 
-    if not any_nonzero:
+    if not any_nonzero and not show_zeros:
         st.info("All components are zero.")
 
 
