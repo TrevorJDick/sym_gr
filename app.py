@@ -138,6 +138,13 @@ def _init_state() -> None:
         "rhs_tensor": None,
         # EFE config snapshot used for field-eq title
         "efe_config": None,
+        # Expander open/closed state — persists across reruns
+        "_chri_expanded": False,
+        "_riem_expanded": False,
+        "_ricci_expanded": False,
+        "_rscalar_expanded": False,
+        "_ein_expanded": False,
+        "_efe_expanded": False,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -165,9 +172,21 @@ TENSOR_KEYS = [
 ]
 
 
+_EXPANDED_FLAGS = [
+    "_chri_expanded",
+    "_riem_expanded",
+    "_ricci_expanded",
+    "_rscalar_expanded",
+    "_ein_expanded",
+    "_efe_expanded",
+]
+
+
 def _wipe_tensors() -> None:
     for k in TENSOR_KEYS:
         st.session_state[k] = None
+    for k in _EXPANDED_FLAGS:
+        st.session_state[k] = False
 
 
 # ---------------------------------------------------------------------------
@@ -537,8 +556,15 @@ def _need_compute_msg():
     st.info("Press **Compute** above to run the calculation.")
 
 
+# Track whether any tensor computed for the first time this render pass.
+# If so, we rerun at the end so the updated expanded= flags take effect.
+_did_compute = False
+
 # ---- Christoffel ----------------------------------------------------------
-with st.expander("Christoffel Symbols  Γ^σ_μν"):
+with st.expander(
+    "Christoffel Symbols  Γ^σ_μν",
+    expanded=st.session_state.get("_chri_expanded", False),
+):
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -549,6 +575,8 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
                     st.session_state["christoffel"] = st_obj.christoffel(
                         simplified=simplified
                     )
+                    st.session_state["_chri_expanded"] = True
+                    _did_compute = True
                 except Exception as e:
                     st.error(f"Christoffel computation failed: {e}")
 
@@ -618,7 +646,10 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
             render_export_buttons(_latex_out, _py_out, key_prefix="chri_export")
 
 # ---- Riemann --------------------------------------------------------------
-with st.expander("Riemann Tensor  R^ρ_σμν"):
+with st.expander(
+    "Riemann Tensor  R^ρ_σμν",
+    expanded=st.session_state.get("_riem_expanded", False),
+):
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -629,6 +660,8 @@ with st.expander("Riemann Tensor  R^ρ_σμν"):
                     st.session_state["riemann"] = st_obj.riemann(
                         simplified=simplified
                     )
+                    st.session_state["_riem_expanded"] = True
+                    _did_compute = True
                 except Exception as e:
                     st.error(f"Riemann computation failed: {e}")
 
@@ -675,7 +708,10 @@ with st.expander("Riemann Tensor  R^ρ_σμν"):
                     )
 
 # ---- Ricci tensor ---------------------------------------------------------
-with st.expander("Ricci Tensor  R_μν"):
+with st.expander(
+    "Ricci Tensor  R_μν",
+    expanded=st.session_state.get("_ricci_expanded", False),
+):
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -686,6 +722,8 @@ with st.expander("Ricci Tensor  R_μν"):
                     st.session_state["ricci"] = st_obj.ricci(
                         simplified=simplified
                     )
+                    st.session_state["_ricci_expanded"] = True
+                    _did_compute = True
                 except Exception as e:
                     st.error(f"Ricci computation failed: {e}")
         if st.session_state["ricci"] is not None:
@@ -698,7 +736,10 @@ with st.expander("Ricci Tensor  R_μν"):
             )
 
 # ---- Ricci scalar ---------------------------------------------------------
-with st.expander("Ricci Scalar  R"):
+with st.expander(
+    "Ricci Scalar  R",
+    expanded=st.session_state.get("_rscalar_expanded", False),
+):
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -709,13 +750,18 @@ with st.expander("Ricci Scalar  R"):
                     st.session_state["ricci_scalar"] = st_obj.ricci_scalar(
                         simplified=simplified
                     )
+                    st.session_state["_rscalar_expanded"] = True
+                    _did_compute = True
                 except Exception as e:
                     st.error(f"Ricci scalar computation failed: {e}")
         if st.session_state["ricci_scalar"] is not None:
             display_scalar(st.session_state["ricci_scalar"], "R")
 
 # ---- Einstein tensor ------------------------------------------------------
-with st.expander("Einstein Tensor  G_μν"):
+with st.expander(
+    "Einstein Tensor  G_μν",
+    expanded=st.session_state.get("_ein_expanded", False),
+):
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -726,6 +772,8 @@ with st.expander("Einstein Tensor  G_μν"):
                     st.session_state["einstein"] = st_obj.einstein(
                         simplified=simplified
                     )
+                    st.session_state["_ein_expanded"] = True
+                    _did_compute = True
                 except Exception as e:
                     st.error(f"Einstein tensor computation failed: {e}")
         if st.session_state["einstein"] is not None:
@@ -754,7 +802,10 @@ def _efe_title() -> str:
         return "Field Equations  G_μν + Λ g_μν = κ T_μν"
 
 
-with st.expander(_efe_title()):
+with st.expander(
+    _efe_title(),
+    expanded=st.session_state.get("_efe_expanded", False),
+):
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -765,6 +816,8 @@ with st.expander(_efe_title()):
                     st.session_state["einstein"] = st_obj.einstein(
                         simplified=simplified
                     )
+                    st.session_state["_ein_expanded"] = True
+                    _did_compute = True
                 except Exception as e:
                     st.error(f"Einstein tensor computation failed: {e}")
 
@@ -803,6 +856,8 @@ with st.expander(_efe_title()):
                             rhs_tensor=st.session_state["rhs_tensor"],
                         )
                         st.session_state["efe_config"] = (lam, T)
+                        st.session_state["_efe_expanded"] = True
+                        _did_compute = True
                     except Exception as e:
                         st.error(f"Field equation generation failed: {e}")
 
@@ -850,6 +905,8 @@ with st.expander(_efe_title()):
                                         parsed_constraints,
                                         auto_simplify=simplified,
                                     )
+                                    st.session_state["_efe_expanded"] = True
+                                    _did_compute = True
                                 except Exception as e:
                                     st.error(f"Constraint application failed: {e}")
                         elif not lines:
@@ -862,6 +919,11 @@ with st.expander(_efe_title()):
                             st.session_state["constrained_eqs"],
                             start_index=n_field + 1,
                         )
+
+# Trigger a rerun whenever a tensor computed for the first time this pass,
+# so the updated expanded= flags take effect immediately.
+if _did_compute:
+    st.rerun()
 
 # ---------------------------------------------------------------------------
 # ── Full derivation export ──────────────────────────────────────────────────
