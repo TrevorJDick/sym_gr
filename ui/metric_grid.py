@@ -16,6 +16,11 @@ import streamlit as st
 from sympy import Matrix, Integer, latex, zeros as sp_zeros
 
 
+def _on_grid_cell_change() -> None:
+    """Mark the grid as the source of the most recent metric change."""
+    st.session_state["_metric_from_grid"] = True
+
+
 def render_metric_grid(
     n: int,
     coord_syms: list,
@@ -105,6 +110,7 @@ def render_metric_grid(
                         key=f"{key_prefix}_{i}_{j}",
                         label_visibility="collapsed",
                         placeholder="0",
+                        on_change=_on_grid_cell_change,
                     )
                     st.session_state[grid_key][cell_key] = entered
 
@@ -139,21 +145,10 @@ def render_metric_grid(
 
     result = Matrix(mat)
 
-    # ── Preview + sync button
+    # ── Matrix preview (expression tab stays in sync automatically)
     st.divider()
-    col_prev, col_btn = st.columns([3, 1])
-    with col_prev:
-        from sympy import latex as sp_latex
-        st.latex(sp_latex(result))
-    with col_btn:
-        expr_str = _matrix_to_str(result, n)
-        if st.button(
-            "Use this metric →",
-            key=f"{key_prefix}_use_btn",
-            help="Copy this metric into the Expression tab.",
-        ):
-            st.session_state["metric_str"] = expr_str
-            st.success("Copied to Expression tab.")
+    from sympy import latex as sp_latex
+    st.latex(sp_latex(result))
 
     return result
 

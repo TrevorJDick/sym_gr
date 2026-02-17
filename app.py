@@ -111,6 +111,9 @@ def _init_state() -> None:
         "simplified": False,
         "_input_key": None,
         "_last_applied_preset": None,
+        # Expression ↔ Grid sync
+        "_metric_from_grid": False,
+        "_last_expr_synced_to_grid": "",
         # Cached tensors
         "spacetime": None,
         "christoffel": None,
@@ -158,6 +161,45 @@ def _wipe_tensors() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helpers: Expression ↔ Grid sync
+# ---------------------------------------------------------------------------
+
+def _grid_state_to_str(n: int, key_prefix: str = "mg") -> str:
+    """Reconstruct a metric expression string from grid cell session state."""
+    grid = st.session_state.get(f"{key_prefix}_grid", {})
+    is_diag = all(
+        grid.get((i, j), "0").strip() in ("0", "")
+        for i in range(n) for j in range(n) if i != j
+    )
+    if is_diag:
+        entries = ", ".join(
+            grid.get((i, i), "0").strip() or "0" for i in range(n)
+        )
+        return f"diag({entries})"
+    rows = []
+    for i in range(n):
+        row = "[" + ", ".join(
+            grid.get((min(i, j), max(i, j)), "0").strip() or "0"
+            for j in range(n)
+        ) + "]"
+        rows.append(row)
+    return "Matrix([" + ", ".join(rows) + "])"
+
+
+def _sync_expr_to_grid(matrix, n: int, key_prefix: str = "mg") -> None:
+    """Push a parsed Matrix into the grid widget state."""
+    grid_key = f"{key_prefix}_grid"
+    if grid_key not in st.session_state:
+        st.session_state[grid_key] = {}
+    for i in range(n):
+        for j in range(i, n):
+            val_str = str(matrix[i, j])
+            st.session_state[grid_key][(i, j)] = val_str
+            # Setting the widget key directly overrides the displayed value
+            st.session_state[f"{key_prefix}_{i}_{j}"] = val_str
+
+
+# ---------------------------------------------------------------------------
 # Sidebar — slim preset loader only
 # ---------------------------------------------------------------------------
 
@@ -184,6 +226,10 @@ with st.sidebar:
         st.session_state["signature"]    = p["signature"]
         st.session_state["coords_str"]   = p["coords"]
         st.session_state["metric_str"]   = p["metric"]
+        # Keep text area and grid in sync with the new preset
+        st.session_state["_metric_input"] = p["metric"]
+        st.session_state["_last_expr_synced_to_grid"] = ""  # force grid refresh
+        st.session_state["_metric_from_grid"] = False
         st.session_state["_last_applied_preset"] = preset_choice
         _wipe_tensors()
     elif preset_choice == "(none)":
@@ -234,6 +280,15 @@ except ValueError as e:
     _coord_syms = []
     _parse_ok = False
 
+# -- Sync grid → expression (must happen before the text area renders)
+if st.session_state.get("_metric_from_grid", False) and _coord_syms:
+    _n = len(_coord_syms)
+    _grid_str = _grid_state_to_str(_n)
+    st.session_state["_metric_input"] = _grid_str
+    st.session_state["metric_str"] = _grid_str
+    st.session_state["_metric_from_grid"] = False
+    st.session_state["_last_expr_synced_to_grid"] = _grid_str
+
 # -- Metric input: two tabs
 tab_expr, tab_grid = st.tabs(["Expression", "Grid"])
 
@@ -270,6 +325,12 @@ with tab_expr:
             st.error(f"Metric error: {e}")
             _parse_ok = False
 
+    # Sync expression → grid when the expression changes
+    if _parse_ok and _metric_preview is not None and _coord_syms:
+        if metric_input != st.session_state.get("_last_expr_synced_to_grid", ""):
+            _sync_expr_to_grid(_metric_preview, len(_coord_syms))
+            st.session_state["_last_expr_synced_to_grid"] = metric_input
+
 with tab_grid:
     if not _parse_ok or not _coord_syms:
         st.warning("Fix coordinate errors first.")
@@ -277,23 +338,10 @@ with tab_grid:
         st.caption(
             "Fill in each cell of g_μν directly. "
             "Unknown functions (A(r), B(r), …) are auto-declared. "
-            "The expression tab and grid are independent — whichever tab "
-            "you last used determines the active metric when you press **Compute**."
+            "Changes here are reflected in the Expression tab automatically."
         )
         n_dim = len(_coord_syms)
-        grid_result = render_metric_grid(n_dim, _coord_syms, key_prefix="mg")
-        if grid_result is not None:
-            # Grid overrides expression tab when it has a valid result
-            st.session_state["_grid_metric"] = grid_result
-            st.info("Grid metric parsed — switch to Expression tab or press Compute.")
-        else:
-            st.session_state["_grid_metric"] = None
-
-# Prefer grid metric if it was the last one set (session_state["_grid_metric"])
-# but only apply it if the grid tab produced a result this run.
-# Simple heuristic: track active tab via a selectbox isn't available in Streamlit,
-# so we let the user manually copy grid → expression tab.  The grid tab shows
-# the current parsed matrix as a preview and the user can copy the expression.
+        render_metric_grid(n_dim, _coord_syms, key_prefix="mg")
 
 # Show metric preview
 if _metric_preview is not None:
@@ -415,6 +463,10 @@ with st.expander("Christoffel Symbols  Γ^σ_μν"):
                 metric=st_obj.metric,
                 metric_inv=st_obj.metric_inverse(),
                 christoffel_steps_data=st.session_state["christoffel_steps"],
+                lambda_str=st.session_state.get("lambda_str", "0"),
+                kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
+                T_str=st.session_state.get("T_str", "0"),
+                signature=st.session_state.get("signature", "-+++"),
             )
             _py_out = build_python_code(
                 coords=st_obj.coords,
@@ -689,9 +741,15 @@ if _st_obj is not None:
         metric=_st_obj.metric,
         metric_inv=_st_obj.metric_inverse(),
         christoffel_steps_data=st.session_state.get("christoffel_steps"),
+        riemann=st.session_state.get("riemann"),
         ricci=st.session_state.get("ricci"),
+        ricci_scalar=st.session_state.get("ricci_scalar"),
         einstein=st.session_state.get("einstein"),
         field_eqs=st.session_state.get("field_eqs"),
+        lambda_str=st.session_state.get("lambda_str", "0"),
+        kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
+        T_str=st.session_state.get("T_str", "0"),
+        signature=st.session_state.get("signature", "-+++"),
     )
     _full_py = build_python_code(
         coords=_st_obj.coords,
