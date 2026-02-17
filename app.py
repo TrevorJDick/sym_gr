@@ -85,6 +85,40 @@ PRESETS: dict[str, dict] = {
         "coords": "t, r, theta, phi",
         "metric": "diag(-1, 1, r**2, r**2*sin(theta)**2)",
     },
+    "FLRW (flat)": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "diag(rho, p*a(t)**2, p*a(t)**2*r**2, p*a(t)**2*r**2*sin(theta)**2)",
+        "coord_preset": "Spherical 4D",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": "diag(-1, a(t)**2, a(t)**2*r**2, a(t)**2*r**2*sin(theta)**2)",
+    },
+    "Anti-de Sitter": {
+        "lambda_str": "-3/L**2",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Cartesian 4D",
+        "signature": "-+++",
+        "coords": "t, z, x, y",
+        "metric": "diag(-L**2/z**2, L**2/z**2, L**2/z**2, L**2/z**2)",
+    },
+    "Kerr": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Spherical 4D",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": (
+            "Matrix(["
+            "[-(1 - 2*M*r/(r**2 + a**2*cos(theta)**2)), 0, 0, -2*M*a*r*sin(theta)**2/(r**2 + a**2*cos(theta)**2)], "
+            "[0, (r**2 + a**2*cos(theta)**2)/(r**2 - 2*M*r + a**2), 0, 0], "
+            "[0, 0, r**2 + a**2*cos(theta)**2, 0], "
+            "[-2*M*a*r*sin(theta)**2/(r**2 + a**2*cos(theta)**2), 0, 0, "
+            "(r**2 + a**2 + 2*M*a**2*r*sin(theta)**2/(r**2 + a**2*cos(theta)**2))*sin(theta)**2]])"
+        ),
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -140,6 +174,10 @@ def _init_state() -> None:
         "efe_config": None,
         # Signature change info message (None = no message)
         "_sig_info": None,
+        # Pending metric update (written by buttons below the text area)
+        "_pending_metric_update": None,
+        # Symmetry reductions applied to the current metric (for LaTeX export)
+        "_applied_symmetries": [],
         # Expander open/closed state — persists across reruns
         "_chri_expanded": False,
         "_riem_expanded": False,
@@ -214,6 +252,8 @@ def _reset_to_defaults() -> None:
         "_last_T_synced_to_grid": "",
         "efe_config": None,
         "_sig_info": None,
+        "_pending_metric_update": None,
+        "_applied_symmetries": [],
         # Widget keys
         "_lambda_input": "0",
         "_kappa_input": "8*pi*G",
@@ -235,24 +275,34 @@ def _reset_to_defaults() -> None:
 # ---------------------------------------------------------------------------
 
 def _grid_state_to_str(n: int, key_prefix: str = "mg") -> str:
-    """Reconstruct a tensor expression string from grid cell session state."""
+    """Reconstruct a tensor expression string from grid cell session state.
+
+    Prefers individual widget session-state keys (e.g. ``mg_0_0``) over the
+    persistent ``mg_grid`` dict, because Streamlit writes the new widget value
+    to the individual key *before* the script reruns, whereas the dict is only
+    updated inside ``render_metric_grid`` which runs later in the script.
+    """
     grid = st.session_state.get(f"{key_prefix}_grid", {})
-    # Check if effectively diagonal (only valid for symmetric grids)
+
+    def _cell(i: int, j: int) -> str:
+        # For symmetric grids the editable widget is always at (min, max).
+        ui, uj = min(i, j), max(i, j)
+        widget_key = f"{key_prefix}_{ui}_{uj}"
+        if widget_key in st.session_state:
+            v = st.session_state[widget_key]
+            return (v or "0").strip() or "0"
+        return (grid.get((ui, uj), "0") or "0").strip() or "0"
+
     is_diag = all(
-        grid.get((i, j), "0").strip() in ("0", "")
+        _cell(i, j) in ("0", "")
         for i in range(n) for j in range(n) if i != j
     )
     if is_diag:
-        entries = ", ".join(
-            grid.get((i, i), "0").strip() or "0" for i in range(n)
-        )
+        entries = ", ".join(_cell(i, i) for i in range(n))
         return f"diag({entries})"
     rows = []
     for i in range(n):
-        row = "[" + ", ".join(
-            grid.get((min(i, j), max(i, j)), "0").strip() or "0"
-            for j in range(n)
-        ) + "]"
+        row = "[" + ", ".join(_cell(i, j) for j in range(n)) + "]"
         rows.append(row)
     return "Matrix([" + ", ".join(rows) + "])"
 
@@ -303,6 +353,7 @@ with st.sidebar:
         st.session_state["_T_from_grid"]      = False
         st.session_state["_last_applied_preset"] = preset_choice
         st.session_state["_sig_info"] = None
+        st.session_state["_applied_symmetries"] = []
         _wipe_tensors()
     elif preset_choice == "(none)":
         st.session_state["_last_applied_preset"] = None
@@ -495,7 +546,37 @@ if _sig != _old_sig:
 if st.session_state.get("_sig_info"):
     st.info(st.session_state["_sig_info"])
 
+# ── General ansatz button ───────────────────────────────────────────────────
+if _parse_ok and _coord_syms:
+    if st.button(
+        "Fill with general ansatz",
+        key="_gen_ansatz_btn",
+        help=(
+            "Populate the metric with symbolic components g_μν "
+            "(e.g. g_t_t, g_t_r, …). Then use 'Symmetry reductions' below "
+            "to apply named physical conditions step by step."
+        ),
+    ):
+        from core.ansatz import generate_metric_symbols
+        from ui.metric_grid import _matrix_to_str as _mts
+        _gen_mat = generate_metric_symbols(_coord_syms)
+        _gen_str = _mts(_gen_mat, len(_coord_syms))
+        st.session_state["metric_str"] = _gen_str
+        st.session_state["_metric_input"] = _gen_str
+        st.session_state["_last_expr_synced_to_grid"] = ""
+        st.session_state["_applied_symmetries"] = []
+        _wipe_tensors()
+        st.rerun()
+
 # ── Metric: sync grid → expression (must happen before text area renders) ──
+# Also flush any pending metric update from buttons rendered below the text area.
+_pending_m = st.session_state.get("_pending_metric_update")
+if _pending_m is not None:
+    st.session_state["_metric_input"] = _pending_m
+    st.session_state["metric_str"] = _pending_m
+    st.session_state["_last_expr_synced_to_grid"] = ""
+    st.session_state["_pending_metric_update"] = None
+
 if st.session_state.get("_metric_from_grid", False) and _coord_syms:
     _n = len(_coord_syms)
     _grid_str = _grid_state_to_str(_n)
@@ -562,6 +643,125 @@ with tab_grid:
 if _metric_preview is not None:
     with st.expander("Parsed metric preview", expanded=True):
         display_metric_preview(_metric_preview, _coord_syms)
+
+# ── Symmetry reductions ─────────────────────────────────────────────────────
+with st.expander("Symmetry reductions", expanded=False):
+    st.caption(
+        "Apply named physical symmetry conditions to the current metric. "
+        "Use **Fill with general ansatz** above to start from the fully general "
+        "g_μν symbol matrix, then reduce here. "
+        "For custom entry (specific functions, setting individual components), "
+        "use the **Grid** tab above."
+    )
+
+    _sr_cols = st.columns([1, 1])
+
+    with _sr_cols[0]:
+        _diag_btn = st.button(
+            "Diagonal",
+            key="_sym_diag_btn",
+            help="Zero all off-diagonal components. Leaves diagonal symbols for you to specify.",
+            disabled=_metric_preview is None,
+        )
+
+    with _sr_cols[1]:
+        _static_btn = st.button(
+            "Static  (t → −t)",
+            key="_sym_static_btn",
+            help=(
+                "Time-reversal symmetry: g_μν invariant under t → −t. "
+                "Under this transformation g_tt → g_tt (unchanged) but "
+                "g_ti → −g_ti (sign flip). Invariance requires all "
+                "time–space cross terms to be zero: g_ti = 0 for spatial i."
+            ),
+            disabled=_metric_preview is None or not _coord_syms,
+        )
+
+    if _diag_btn and _metric_preview is not None:
+        from core.ansatz import diagonal_constraints, apply_metric_constraints
+        from ui.metric_grid import _matrix_to_str as _mts2
+        _dc = diagonal_constraints(_metric_preview, _coord_syms)
+        if _dc:
+            _new_m = apply_metric_constraints(_metric_preview, _dc, _coord_syms)
+            st.session_state["_pending_metric_update"] = _mts2(_new_m, len(_coord_syms))
+            _syms = st.session_state.get("_applied_symmetries", [])
+            if "diagonal" not in _syms:
+                st.session_state["_applied_symmetries"] = _syms + ["diagonal"]
+            _wipe_tensors()
+            st.rerun()
+        else:
+            st.info("Metric is already diagonal.")
+
+    if _static_btn and _metric_preview is not None and _coord_syms:
+        from core.ansatz import stationary_constraints, apply_metric_constraints
+        from ui.metric_grid import _matrix_to_str as _mts3
+        _sc = stationary_constraints(_metric_preview, _coord_syms)
+        if _sc:
+            _new_m = apply_metric_constraints(_metric_preview, _sc, _coord_syms)
+            st.session_state["_pending_metric_update"] = _mts3(_new_m, len(_coord_syms))
+            _syms = st.session_state.get("_applied_symmetries", [])
+            if "static" not in _syms:
+                st.session_state["_applied_symmetries"] = _syms + ["static"]
+            _wipe_tensors()
+            st.rerun()
+        else:
+            st.info("No time–space cross terms present.")
+
+    # ── Custom metric constraints ────────────────────────────────────────────
+    st.divider()
+    st.markdown("**Custom constraints**")
+    st.caption(
+        "Enter substitution rules to apply directly to the metric "
+        "(one per line, `lhs = rhs` format). "
+        "Examples: `g_t_r = 0`,  `g_t_t = -A(r)`,  `g_r_r = B(r)`."
+    )
+    _cust_constraints_text = st.text_area(
+        "Metric constraints",
+        height=90,
+        key="_metric_constraint_text",
+        placeholder="g_t_r = 0\ng_t_t = -A(r)\ng_r_r = B(r)",
+        label_visibility="collapsed",
+    )
+    _apply_mc_btn = st.button(
+        "Apply to metric",
+        key="_apply_metric_constraints_btn",
+        disabled=_metric_preview is None,
+    )
+    if _apply_mc_btn and _metric_preview is not None:
+        _mc_lines = [ln.strip() for ln in _cust_constraints_text.splitlines() if ln.strip()]
+        _mc_parsed = []
+        _mc_any_error = False
+        for _mc_ln in _mc_lines:
+            try:
+                _mc_parsed.append(parse_constraint(_mc_ln, _coord_syms))
+            except ValueError as _mc_e:
+                st.error(f"Parse error on `{_mc_ln}`: {_mc_e}")
+                _mc_any_error = True
+        if not _mc_any_error and _mc_parsed:
+            from core.ansatz import apply_metric_constraints
+            from ui.metric_grid import _matrix_to_str as _mts4
+            _new_m = apply_metric_constraints(_metric_preview, _mc_parsed, _coord_syms)
+            st.session_state["_pending_metric_update"] = _mts4(_new_m, len(_coord_syms))
+            _wipe_tensors()
+            st.rerun()
+        elif not _mc_lines:
+            st.warning("No constraints entered.")
+
+    st.divider()
+    st.caption(
+        "**∂_t g_μν = 0 (stationary):** "
+        "A spacetime is stationary if it admits a timelike Killing vector ∂_t, "
+        "i.e. the metric has no explicit t-dependence (Carroll §3.8). "
+        "In the *Fill with general ansatz* approach, each component such as "
+        "g_t_t or g_r_r is a SymPy `Symbol` — a mathematical constant with "
+        "no coordinate dependence whatsoever. "
+        "Consequently ∂/∂t Symbol = 0 by definition, so ∂_t g_μν = 0 is "
+        "trivially satisfied for every coordinate, not just t. "
+        "This means the symbol ansatz lives in the *most symmetric* class. "
+        "Functional dependence (e.g. g_t_t = A(r)) is introduced via the "
+        "Grid tab, after which ∂_r g_t_t = dA/dr ≠ 0 but ∂_t g_t_t = 0 "
+        "is still maintained as long as A does not depend on t."
+    )
 
 # -- Compute button
 compute_clicked = st.button("Compute", type="primary", disabled=not _parse_ok)
@@ -687,6 +887,7 @@ with st.expander(
                 kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
                 T_str=st.session_state.get("T_str", "0"),
                 signature=st.session_state.get("signature", "-+++"),
+                applied_symmetries=st.session_state.get("_applied_symmetries", []),
             )
             _py_out = build_python_code(
                 coords=st_obj.coords,
@@ -1043,6 +1244,7 @@ if _st_obj is not None:
         kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
         T_str=st.session_state.get("T_str", "0"),
         signature=st.session_state.get("signature", "-+++"),
+        applied_symmetries=st.session_state.get("_applied_symmetries", []),
     )
     _full_py = build_python_code(
         coords=_st_obj.coords,

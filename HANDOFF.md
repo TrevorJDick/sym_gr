@@ -1,6 +1,6 @@
 # Session Handoff
 
-## State as of 2026-02-16
+## State as of 2026-02-17
 
 ### What has been built
 
@@ -12,26 +12,28 @@
 | `core/tensors.py` | Pure functions: Christoffel, Riemann, Ricci, Einstein |
 | `core/derivation.py` | Step-by-step derivation data structures (`ChristoffelStep`, `RiemannStep`, `RhoTerm`) and builders |
 | `core/system.py` | `field_equations()` — extracts independent non-trivial equations; supports optional per-component RHS tensor |
-| `core/constraints.py` | `apply_constraints()` — substitutes candidate solutions, handles `Derivative` terms correctly |
+| `core/constraints.py` | `apply_constraints()`, `constrain_tensor()`, `simplify_equation_steps()`, `_function_subs()` |
+| `core/ansatz.py` | `generate_metric_symbols()`, `apply_metric_constraints()`, `diagonal_constraints()`, `stationary_constraints()` |
 
 #### Streamlit UI (`ui/` + `app.py`)
 
-The app is a linear four-section scroll:
+The app is a linear five-section scroll:
 
 1. **EFE Setup** — configure Λ, κ, T_μν; live equation preview
-2. **Coordinate System** — preset selector (Cartesian, Spherical, Cylindrical, Schwarzschild), editable coord names, signature −+++ / +−−−, coordinate transform display
-3. **Metric Ansatz** — Expression tab (text area) and Grid tab (n×n interactive cells) that stay in sync automatically
-4. **Results** — per-tensor expanders with step-by-step toggle, show-zeros toggle, field equations, constraints, export
+2. **Coordinate System** — preset selector (Cartesian, Spherical, Cylindrical, Schwarzschild), editable coord names, coordinate transform display
+3. **Stress-Energy Tensor T_μν** — Expression tab and Grid tab (synced); used to form the RHS of the EFE
+4. **Metric Ansatz** — signature selector, Fill with general ansatz button, Expression/Grid tabs (synced), Symmetry reductions expander
+5. **Results** — per-tensor expanders with step-by-step toggle, show-zeros toggle, field equations, constraints, export
 
 | File | Purpose |
 |------|---------|
 | `ui/parse.py` | Parse coord strings, metric expressions, constraints into SymPy |
-| `ui/display.py` | LaTeX rendering for rank-2/3/4 tensors and scalars |
+| `ui/display.py` | LaTeX rendering for rank-2/3/4 tensors and scalars; `display_equations(start_index=)` |
 | `ui/efe_config.py` | EFE banner, 5-column controls, live equation display, `build_rhs_tensor()` |
-| `ui/coord_config.py` | `COORD_PRESETS` dict, `render_coord_config()` |
+| `ui/coord_config.py` | `COORD_PRESETS` dict, `render_coord_config()` (returns `coords_str` only) |
 | `ui/metric_grid.py` | n×n symmetric grid input; auto-syncs with Expression tab |
 | `ui/drill_down.py` | Compact overview + selectbox + detail panel for Christoffel and Riemann (no nested expanders) |
-| `ui/export.py` | Narrative LaTeX document builder and Python script builder |
+| `ui/export.py` | Narrative LaTeX document builder and Python script builder; `_sec_symmetry_reductions()` for derivation export |
 
 #### Presets
 
@@ -44,12 +46,35 @@ The app is a linear four-section scroll:
 
 ---
 
+### Metric Ansatz workflow
+
+#### General ansatz + symmetry reductions (new in `feature/ansatz-variables`)
+
+1. Press **Fill with general ansatz** → metric populated with `g_t_t, g_t_r, …` symbols (fully general, all components independent). `_applied_symmetries` list is cleared.
+2. Open **Symmetry reductions** expander, apply named conditions:
+   - **Diagonal** — zeros all off-diagonal entries via `diagonal_constraints()` + `apply_metric_constraints()`
+   - **Static (t → −t)** — zeros all time–space cross terms via `stationary_constraints()` + `apply_metric_constraints()`; derivation: under t→−t the Jacobian is diag(−1,1,…,1), so g_ti → −g_ti; invariance requires g_ti = 0
+   - **Custom constraints** — text area for `lhs = rhs` rules (e.g. `g_t_t = -A(r)`); applied via `apply_metric_constraints()`
+3. Each symmetry button appends to `_applied_symmetries` session-state list (e.g. `["diagonal", "static"]`).
+4. On export, `_sec_symmetry_reductions()` generates a LaTeX section with full algebraic derivation for each applied symmetry. Passes through `build_full_latex(applied_symmetries=...)`.
+
+#### Session state keys (metric/ansatz area)
+
+| Key | Purpose |
+|-----|---------|
+| `_pending_metric_update` | Staging key for buttons that can't write `_metric_input` directly (rendered below the text area). Flushed before the text area renders. |
+| `_applied_symmetries` | List of symmetry names applied to the current metric (e.g. `["diagonal", "static"]`). Cleared on preset load and Fill with general ansatz. |
+| `_sig_info` | Persistent info message when signature change can't auto-update the metric (e.g. custom or named-preset metrics). |
+
+---
+
 ### Known caveats
 
 - **Schwarzschild constraint verification**: applying `A(r) = 1-2M/r`, `B(r) = 1/(1-2M/r)` requires "Simplify" to be ticked — without simplification the residuals don't structurally cancel
 - **Computation speed**: ~60–90 s for Schwarzschild full pipeline (symbolic derivatives over 4D metric with unknown functions)
 - **No pickle / cache_data**: `Spacetime` objects are not serializable; all caching is manual via `st.session_state`
-- **Expression ↔ Grid sync**: the sync round-trips through SymPy's `str()` — if SymPy renders a component differently than what the user typed (e.g. `sin(theta)**2` vs `sin(theta)^2`), the cell will update to SymPy's canonical form on first sync
+- **Expression ↔ Grid sync**: the sync round-trips through SymPy's `str()` — if SymPy renders a component differently than what the user typed, the cell will update to SymPy's canonical form on first sync
+- **Stationary condition and symbol ansatz**: `g_t_t` etc. are SymPy `Symbol`s (constants), so ∂_t g_μν = 0 is trivially satisfied for all coordinates. Functional dependence must be introduced explicitly via the Grid tab or custom constraints.
 
 ---
 
@@ -65,7 +90,9 @@ The app is a linear four-section scroll:
 
 - Preset loading: sets `_last_applied_preset`; only applied when selection changes (prevents rerun-triggered re-fires)
 - Expression ↔ Grid sync: `_metric_from_grid` flag set by `on_change` callback; grid→expr runs before text area renders; expr→grid runs after successful parse when `metric_input != _last_expr_synced_to_grid`
+- `_pending_metric_update` staging: buttons below the text area write to this key; it is flushed into `_metric_input` before the text area renders on the next rerun
 - Tensor cache keys in `TENSOR_KEYS`: wiped on input change and preset load
+- Expander persistence: `_X_expanded` flags + `st.rerun()` after first compute so expanded= takes effect
 
 #### Index conventions (Carroll)
 
@@ -78,9 +105,9 @@ The app is a linear four-section scroll:
 
 ### Potential next steps
 
-- **Constraint drill-down**: step-by-step display of the substitution chain when applying constraints (what each equation looks like after each substitution)
+- **More symmetry conditions**: spherical symmetry (g_θφ = 0, g_rθ = 0, etc.), axisymmetry (Killing vector ∂_φ), FLRW homogeneity
+- **Ansatz parameter labelling**: after Fill + reductions, offer a button to rename surviving diagonal symbols to user-chosen function names (e.g. rename `g_t_t` → `A(r)`)
+- **Constraint drill-down**: step-by-step display of the substitution chain when applying constraints
 - **Bianchi identity check**: verify `∇_μ G^μν = 0` symbolically for the computed Einstein tensor
-- **2D / 3D support**: currently hardcoded to 4D in some places; generalise coordinate dimension
 - **More presets**: FLRW cosmological metric, Kerr ansatz, pp-wave
-- **Equation numbering in export**: cross-reference derived equations by number in the narrative LaTeX output
 - **PDF compilation**: if `tectonic` or `pdflatex` is available, offer a one-click PDF download
