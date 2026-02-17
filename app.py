@@ -5,7 +5,7 @@ Streamlit UI for sym_gr — interactive symbolic GR tensor computation.
 
 Layout: linear main-area scroll with five sections:
   1. EFE Setup      — configure Λ, κ, and the EFE form
-  2. Coordinate System — choose coordinates and signature
+  2. Coordinate System — choose coordinates
   3. Stress-Energy Tensor T_μν — enter T_μν in the chosen coordinate basis
   4. Metric Ansatz  — enter / review the metric
   5. Results        — Christoffel, Riemann, Ricci, Einstein, field equations
@@ -353,7 +353,7 @@ st.divider()
 
 st.header("2 · Coordinate System")
 
-coords_str, metric_hint = render_coord_config()
+coords_str = render_coord_config()
 
 # Parse coords here — shared by Sections 3 (T_μν) and 4 (Metric)
 _parse_ok = True
@@ -442,6 +442,31 @@ st.divider()
 # ---------------------------------------------------------------------------
 
 st.header("4 · Metric Ansatz")
+
+# ── Signature selector ──────────────────────────────────────────────────────
+from ui.coord_config import COORD_PRESETS as _COORD_PRESETS
+_old_sig = st.session_state.get("signature", "-+++")
+_sig = st.radio(
+    "Signature",
+    options=["-+++", "+---"],
+    index=0 if _old_sig == "-+++" else 1,
+    horizontal=True,
+    key="_signature_radio",
+    help=(
+        "Sign convention for the metric. −+++ is standard in GR (Carroll, Wald, MTW). "
+        "Changing this updates the metric hint for the selected coordinate preset."
+    ),
+)
+st.session_state["signature"] = _sig
+if _sig != _old_sig:
+    _preset_data = _COORD_PRESETS.get(st.session_state.get("coord_preset", ""), {})
+    _hint_key = "metric_diag_minus" if _sig == "-+++" else "metric_diag_plus"
+    _hint = _preset_data.get(_hint_key)
+    if _hint:
+        st.session_state["metric_str"] = _hint
+        st.session_state["_metric_input"] = _hint
+        st.session_state["_last_expr_synced_to_grid"] = ""
+    _wipe_tensors()
 
 # ── Metric: sync grid → expression (must happen before text area renders) ──
 if st.session_state.get("_metric_from_grid", False) and _coord_syms:
