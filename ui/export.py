@@ -666,85 +666,44 @@ To obtain the explicit metric:
 
 def _sec_symmetry_reductions(applied_symmetries: list, coords: list) -> str:
     """
-    LaTeX section documenting the algebraic derivation behind each applied
-    symmetry reduction.  Included in the export when the user has used the
-    Symmetry reductions panel.
+    LaTeX section documenting the ansatz derivation steps.
+
+    ``applied_symmetries`` is now the ``_ansatz_steps`` list from session state
+    (list of step dicts with keys: description, step_type, content, applied).
+    Only applied steps are included.
     """
     if not applied_symmetries:
         return ""
 
-    t_sym = latex(coords[0])                       # time coordinate label
-    spatial = coords[1:]
-    spatial_str = ", ".join(latex(c) for c in spatial)
+    # Support both the old string-list format and the new step-dict format
+    steps = [s for s in applied_symmetries if isinstance(s, dict) and s.get("applied")]
+    if not steps:
+        return ""
 
-    lines = [r"\section*{Symmetry Reductions}", ""]
+    lines = [r"\section*{Ansatz Derivation Steps}", ""]
 
-    # ---- Static (time-reversal) symmetry -----------------------------------
-    if "static" in applied_symmetries:
-        lines += [
-            r"\subsection*{Time-Reversal Symmetry and the Static Condition}",
-            "",
-            r"A spacetime is \textbf{static} if it is (i) stationary "
-            r"(time-independent, i.e.\ admits a timelike Killing vector "
-            r"$\partial_t$) and (ii) invariant under time-reversal. "
-            r"We derive the metric constraint that condition~(ii) imposes.",
-            "",
-            r"Consider the discrete diffeomorphism",
-            r"\begin{equation}",
-            rf"  \phi\colon \quad {t_sym} \;\longmapsto\; -{t_sym}, "
-            + (rf"\qquad {spatial_str} \;\longmapsto\; {spatial_str}." if spatial else ""),
-            r"\end{equation}",
-            r"The Jacobian matrix is",
-            r"\begin{equation}",
-            r"  \frac{\partial x^\alpha}{\partial x'^\mu} "
-            r"= \operatorname{diag}(-1,\underbrace{1,\ldots,1}_{n-1}).",
-            r"\end{equation}",
-            r"Since $g_{\mu\nu}$ is a covariant $(0,2)$ tensor it transforms as",
-            r"\begin{equation}",
-            r"  g'_{\mu\nu} = "
-            r"\frac{\partial x^\alpha}{\partial x'^\mu}"
-            r"\frac{\partial x^\beta}{\partial x'^\nu}\, g_{\alpha\beta}.",
-            r"\end{equation}",
-            r"Evaluating each block:",
-            r"\begin{align}",
-            rf"  g'_{{{t_sym}{t_sym}}} &= (-1)(-1)\,g_{{{t_sym}{t_sym}}} "
-            rf"= g_{{{t_sym}{t_sym}}} && \text{{(time-time: unchanged)}} \\",
-            rf"  g'_{{{t_sym}i}} &= (-1)(+1)\,g_{{{t_sym}i}} "
-            rf"= -g_{{{t_sym}i}} && \text{{($i$ spatial: sign reversal)}} \\",
-            r"  g'_{ij} &= (+1)(+1)\,g_{ij} "
-            r"= g_{ij} && \text{(space-space: unchanged)}",
-            r"\end{align}",
-            r"Imposing invariance $g'_{\mu\nu} = g_{\mu\nu}$:",
-            r"\begin{align}",
-            rf"  g_{{{t_sym}{t_sym}}} &= g_{{{t_sym}{t_sym}}} "
-            r"\quad \checkmark && \text{(no constraint)} \\",
-            rf"  g_{{{t_sym}i}} &= -g_{{{t_sym}i}} "
-            r"\;\Longrightarrow\; 2\,g_{ti} = 0 "
-            r"\;\Longrightarrow\; \boxed{g_{ti} = 0} "
-            r"&& \forall\,i \neq t \\",
-            r"  g_{ij} &= g_{ij} \quad \checkmark "
-            r"&& \text{(no constraint)}",
-            r"\end{align}",
-            r"\textbf{Conclusion:} time-reversal symmetry forces every "
-            r"time--space cross component to vanish.",
-            r"(Source: Carroll, \textit{Spacetime and Geometry}, \S3.8; "
-            r"Wald, \textit{General Relativity}, Ch.~6.)",
-            "",
-        ]
+    for i, step in enumerate(steps, 1):
+        desc = step.get("description", "").strip()
+        content = step.get("content", "").strip()
+        step_type = step.get("step_type", "constraint")
 
-    # ---- Diagonal metric ---------------------------------------------------
-    if "diagonal" in applied_symmetries:
-        lines += [
-            r"\subsection*{Diagonal Metric}",
-            "",
-            r"The metric was further restricted to \textbf{diagonal} form: "
-            r"$g_{\mu\nu} = 0$ for all $\mu \neq \nu$. "
-            r"This corresponds to choosing coordinates that are mutually "
-            r"orthogonal at every point of the manifold. "
-            r"Together with time-reversal symmetry (if applied) this "
-            r"eliminates all off-diagonal components.",
-            "",
-        ]
+        title = desc if desc else f"Step {i}"
+        lines.append(rf"\subsection*{{Step {i}: {title}}}")
+        lines.append("")
+
+        if step_type == "constraint" and content:
+            lines.append(r"Constraint rules applied to the metric:")
+            lines.append(r"\begin{align*}")
+            for rule_line in content.splitlines():
+                rule_line = rule_line.strip()
+                if "=" in rule_line:
+                    lhs, rhs = rule_line.split("=", 1)
+                    lines.append(rf"  {lhs.strip()} &= {rhs.strip()} \\")
+            lines.append(r"\end{align*}")
+        else:
+            lines.append(r"Metric was edited directly at this step.")
+
+        lines.append("")
 
     return "\n".join(lines) + "\n"
 

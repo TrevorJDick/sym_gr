@@ -66,7 +66,34 @@ PRESETS: dict[str, dict] = {
         "coord_preset": "Schwarzschild ansatz",
         "signature": "-+++",
         "coords": "t, r, theta, phi",
-        "metric": "diag(-A(r), B(r), r**2, r**2*sin(theta)**2)",
+        "metric": None,  # set from general ansatz via steps
+        "ansatz_steps": [
+            {
+                "description": "Static metric — t→-t symmetry kills time-space cross terms",
+                "step_type": "constraint",
+                "content": "g_t_r = 0\ng_t_theta = 0\ng_t_phi = 0",
+            },
+            {
+                "description": "Spherical symmetry — no r-angle or angle-angle mixing",
+                "step_type": "constraint",
+                "content": "g_r_theta = 0\ng_r_phi = 0\ng_theta_phi = 0",
+            },
+            {
+                "description": "SO(3) invariance — angular block must be a round sphere",
+                "step_type": "constraint",
+                "content": "g_phi_phi = sin(theta)**2 * g_theta_theta",
+            },
+            {
+                "description": "Coordinate choice — define r so the angular area element is 4πr²",
+                "step_type": "constraint",
+                "content": "g_theta_theta = r**2",
+            },
+            {
+                "description": "Rename the two remaining free functions",
+                "step_type": "constraint",
+                "content": "g_t_t = -A(r)\ng_r_r = B(r)",
+            },
+        ],
     },
     "de Sitter": {
         "lambda_str": "Lambda",
@@ -180,8 +207,10 @@ def _init_state() -> None:
         "_sig_info": None,
         # Pending metric update (written by buttons below the text area)
         "_pending_metric_update": None,
-        # Symmetry reductions applied to the current metric (for LaTeX export)
-        "_applied_symmetries": [],
+        # Ansatz step log
+        "_ansatz_steps": [],
+        "_ansatz_base_metric": None,
+        "_use_general_ansatz": False,
         # Expander open/closed state — persists across reruns
         "_chri_expanded": False,
         "_riem_expanded": False,
@@ -260,7 +289,9 @@ def _reset_to_defaults() -> None:
         "efe_config": None,
         "_sig_info": None,
         "_pending_metric_update": None,
-        "_applied_symmetries": [],
+        "_ansatz_steps": [],
+        "_ansatz_base_metric": None,
+        "_use_general_ansatz": False,
         # Widget keys
         "_lambda_input": "0",
         "_kappa_input": "8*pi*G",
@@ -350,17 +381,34 @@ with st.sidebar:
         st.session_state["coord_preset"] = p["coord_preset"]
         st.session_state["signature"]    = p["signature"]
         st.session_state["coords_str"]   = p["coords"]
-        st.session_state["metric_str"]   = p["metric"]
-        # Keep text areas and grids in sync with the new preset
-        st.session_state["_metric_input"] = p["metric"]
         st.session_state["_T_input"]      = p["T_str"]
-        st.session_state["_last_expr_synced_to_grid"] = ""  # force metric grid refresh
-        st.session_state["_last_T_synced_to_grid"]    = ""  # force T grid refresh
+        st.session_state["_last_T_synced_to_grid"]    = ""
         st.session_state["_metric_from_grid"] = False
         st.session_state["_T_from_grid"]      = False
         st.session_state["_last_applied_preset"] = preset_choice
         st.session_state["_sig_info"] = None
-        st.session_state["_applied_symmetries"] = []
+
+        if p.get("ansatz_steps"):
+            # Step-based preset: start from the general ansatz, pre-populate steps
+            from ui.ansatz_steps import _make_step
+            st.session_state["_ansatz_steps"] = [
+                _make_step(
+                    description=s["description"],
+                    step_type=s["step_type"],
+                    content=s["content"],
+                )
+                for s in p["ansatz_steps"]
+            ]
+            st.session_state["_use_general_ansatz"] = True  # resolved in Section 4
+        else:
+            metric = p.get("metric", "")
+            st.session_state["metric_str"]   = metric
+            st.session_state["_metric_input"] = metric
+            st.session_state["_last_expr_synced_to_grid"] = ""
+            st.session_state["_ansatz_steps"] = []
+            st.session_state["_ansatz_base_metric"] = None
+            st.session_state["_use_general_ansatz"] = False
+
         _wipe_tensors()
     elif preset_choice == "(none)":
         st.session_state["_last_applied_preset"] = None
@@ -555,13 +603,26 @@ if st.session_state.get("_sig_info"):
 
 # ── General ansatz button ───────────────────────────────────────────────────
 if _parse_ok and _coord_syms:
+    # Resolve a deferred general-ansatz request (e.g. from a step-based preset)
+    if st.session_state.get("_use_general_ansatz"):
+        from core.ansatz import generate_metric_symbols
+        from ui.metric_grid import _matrix_to_str as _mts
+        _gen_mat = generate_metric_symbols(_coord_syms)
+        _gen_str = _mts(_gen_mat, len(_coord_syms))
+        st.session_state["metric_str"] = _gen_str
+        st.session_state["_metric_input"] = _gen_str
+        st.session_state["_last_expr_synced_to_grid"] = ""
+        st.session_state["_ansatz_base_metric"] = _gen_str
+        st.session_state["_use_general_ansatz"] = False
+        st.rerun()
+
     if st.button(
         "Fill with general ansatz",
         key="_gen_ansatz_btn",
         help=(
-            "Populate the metric with symbolic components g_μν "
-            "(e.g. g_t_t, g_t_r, …). Then use 'Symmetry reductions' below "
-            "to apply named physical conditions step by step."
+            "Populate the metric with 16 symbolic components g_μν "
+            "(e.g. g_t_t, g_t_r, …). Then use the step log below "
+            "to apply physical conditions one at a time."
         ),
     ):
         from core.ansatz import generate_metric_symbols
@@ -571,7 +632,8 @@ if _parse_ok and _coord_syms:
         st.session_state["metric_str"] = _gen_str
         st.session_state["_metric_input"] = _gen_str
         st.session_state["_last_expr_synced_to_grid"] = ""
-        st.session_state["_applied_symmetries"] = []
+        st.session_state["_ansatz_steps"] = []
+        st.session_state["_ansatz_base_metric"] = _gen_str
         _wipe_tensors()
         st.rerun()
 
@@ -651,124 +713,17 @@ if _metric_preview is not None:
     with st.expander("Parsed metric preview", expanded=True):
         display_metric_preview(_metric_preview, _coord_syms)
 
-# ── Symmetry reductions ─────────────────────────────────────────────────────
-with st.expander("Symmetry reductions", expanded=False):
+# ── Ansatz step log ──────────────────────────────────────────────────────────
+if _parse_ok and _coord_syms:
+    from ui.ansatz_steps import render_ansatz_steps
+    st.subheader("Ansatz steps")
     st.caption(
-        "Apply named physical symmetry conditions to the current metric. "
-        "Use **Fill with general ansatz** above to start from the fully general "
-        "g_μν symbol matrix, then reduce here. "
-        "For custom entry (specific functions, setting individual components), "
-        "use the **Grid** tab above."
+        "Build the metric by applying constraint rules one step at a time. "
+        "Start with **Fill with general ansatz** above, or type any metric directly "
+        "in the Expression tab. Each step applies `lhs = rhs` substitutions to the "
+        "current metric and records the result. Undo rolls back one step at a time."
     )
-
-    _sr_cols = st.columns([1, 1])
-
-    with _sr_cols[0]:
-        _diag_btn = st.button(
-            "Diagonal",
-            key="_sym_diag_btn",
-            help="Zero all off-diagonal components. Leaves diagonal symbols for you to specify.",
-            disabled=_metric_preview is None,
-        )
-
-    with _sr_cols[1]:
-        _static_btn = st.button(
-            "Static  (t → −t)",
-            key="_sym_static_btn",
-            help=(
-                "Time-reversal symmetry: g_μν invariant under t → −t. "
-                "Under this transformation g_tt → g_tt (unchanged) but "
-                "g_ti → −g_ti (sign flip). Invariance requires all "
-                "time–space cross terms to be zero: g_ti = 0 for spatial i."
-            ),
-            disabled=_metric_preview is None or not _coord_syms,
-        )
-
-    if _diag_btn and _metric_preview is not None:
-        from core.ansatz import diagonal_constraints, apply_metric_constraints
-        from ui.metric_grid import _matrix_to_str as _mts2
-        _dc = diagonal_constraints(_metric_preview, _coord_syms)
-        if _dc:
-            _new_m = apply_metric_constraints(_metric_preview, _dc, _coord_syms)
-            st.session_state["_pending_metric_update"] = _mts2(_new_m, len(_coord_syms))
-            _syms = st.session_state.get("_applied_symmetries", [])
-            if "diagonal" not in _syms:
-                st.session_state["_applied_symmetries"] = _syms + ["diagonal"]
-            _wipe_tensors()
-            st.rerun()
-        else:
-            st.info("Metric is already diagonal.")
-
-    if _static_btn and _metric_preview is not None and _coord_syms:
-        from core.ansatz import stationary_constraints, apply_metric_constraints
-        from ui.metric_grid import _matrix_to_str as _mts3
-        _sc = stationary_constraints(_metric_preview, _coord_syms)
-        if _sc:
-            _new_m = apply_metric_constraints(_metric_preview, _sc, _coord_syms)
-            st.session_state["_pending_metric_update"] = _mts3(_new_m, len(_coord_syms))
-            _syms = st.session_state.get("_applied_symmetries", [])
-            if "static" not in _syms:
-                st.session_state["_applied_symmetries"] = _syms + ["static"]
-            _wipe_tensors()
-            st.rerun()
-        else:
-            st.info("No time–space cross terms present.")
-
-    # ── Custom metric constraints ────────────────────────────────────────────
-    st.divider()
-    st.markdown("**Custom constraints**")
-    st.caption(
-        "Enter substitution rules to apply directly to the metric "
-        "(one per line, `lhs = rhs` format). "
-        "Examples: `g_t_r = 0`,  `g_t_t = -A(r)`,  `g_r_r = B(r)`."
-    )
-    _cust_constraints_text = st.text_area(
-        "Metric constraints",
-        height=90,
-        key="_metric_constraint_text",
-        placeholder="g_t_r = 0\ng_t_t = -A(r)\ng_r_r = B(r)",
-        label_visibility="collapsed",
-    )
-    _apply_mc_btn = st.button(
-        "Apply to metric",
-        key="_apply_metric_constraints_btn",
-        disabled=_metric_preview is None,
-    )
-    if _apply_mc_btn and _metric_preview is not None:
-        _mc_lines = [ln.strip() for ln in _cust_constraints_text.splitlines() if ln.strip()]
-        _mc_parsed = []
-        _mc_any_error = False
-        for _mc_ln in _mc_lines:
-            try:
-                _mc_parsed.append(parse_constraint(_mc_ln, _coord_syms))
-            except ValueError as _mc_e:
-                st.error(f"Parse error on `{_mc_ln}`: {_mc_e}")
-                _mc_any_error = True
-        if not _mc_any_error and _mc_parsed:
-            from core.ansatz import apply_metric_constraints
-            from ui.metric_grid import _matrix_to_str as _mts4
-            _new_m = apply_metric_constraints(_metric_preview, _mc_parsed, _coord_syms)
-            st.session_state["_pending_metric_update"] = _mts4(_new_m, len(_coord_syms))
-            _wipe_tensors()
-            st.rerun()
-        elif not _mc_lines:
-            st.warning("No constraints entered.")
-
-    st.divider()
-    st.caption(
-        "**∂_t g_μν = 0 (stationary):** "
-        "A spacetime is stationary if it admits a timelike Killing vector ∂_t, "
-        "i.e. the metric has no explicit t-dependence (Carroll §3.8). "
-        "In the *Fill with general ansatz* approach, each component such as "
-        "g_t_t or g_r_r is a SymPy `Symbol` — a mathematical constant with "
-        "no coordinate dependence whatsoever. "
-        "Consequently ∂/∂t Symbol = 0 by definition, so ∂_t g_μν = 0 is "
-        "trivially satisfied for every coordinate, not just t. "
-        "This means the symbol ansatz lives in the *most symmetric* class. "
-        "Functional dependence (e.g. g_t_t = A(r)) is introduced via the "
-        "Grid tab, after which ∂_r g_t_t = dA/dr ≠ 0 but ∂_t g_t_t = 0 "
-        "is still maintained as long as A does not depend on t."
-    )
+    render_ansatz_steps(_coord_syms, _wipe_tensors)
 
 # -- Compute button
 compute_clicked = st.button("Compute", type="primary", disabled=not _parse_ok)
@@ -919,7 +874,7 @@ with st.expander(
                 kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
                 T_str=st.session_state.get("T_str", "0"),
                 signature=st.session_state.get("signature", "-+++"),
-                applied_symmetries=st.session_state.get("_applied_symmetries", []),
+                applied_symmetries=st.session_state.get("_ansatz_steps", []),
             )
             _py_out = build_python_code(
                 coords=st_obj.coords,
@@ -1485,7 +1440,7 @@ if _st_obj is not None:
         kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
         T_str=st.session_state.get("T_str", "0"),
         signature=st.session_state.get("signature", "-+++"),
-        applied_symmetries=st.session_state.get("_applied_symmetries", []),
+        applied_symmetries=st.session_state.get("_ansatz_steps", []),
         field_eq_verbose=st.session_state.get("_chk_efe_verbose", False),
         field_eq_labels=st.session_state.get("field_eq_labels"),
         field_eq_dropped=st.session_state.get("field_eq_dropped"),
