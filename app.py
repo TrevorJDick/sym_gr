@@ -227,6 +227,37 @@ def _init_state() -> None:
 _init_state()
 
 # ---------------------------------------------------------------------------
+# Handle pending widget reset BEFORE any widget is instantiated.
+# _reset_to_defaults() sets _reset_requested=True then calls st.rerun().
+# On the subsequent rerun this block runs before any sidebar/main widgets
+# are rendered, so deleting their session-state keys is safe and causes
+# Streamlit to fall back to each widget's default `value` / `index`.
+# ---------------------------------------------------------------------------
+
+if st.session_state.pop("_reset_requested", False):
+    _WIDGET_KEYS_TO_CLEAR = [
+        "_preset_select",
+        "_lambda_input",
+        "_kappa_input",
+        "_metric_input",
+        "_T_input",
+    ]
+    for _wk in _WIDGET_KEYS_TO_CLEAR:
+        st.session_state.pop(_wk, None)
+    # Clear grid and step-log widget keys
+    for _wk in list(st.session_state.keys()):
+        if (
+            _wk.startswith("mg_")
+            or _wk.startswith("tg_")
+            or _wk.startswith("_sdesc_")
+            or _wk.startswith("_scontent_")
+            or _wk.startswith("_sapply_")
+            or _wk.startswith("_sundo_")
+            or _wk.startswith("_sdel_")
+        ):
+            del st.session_state[_wk]
+
+# ---------------------------------------------------------------------------
 # Helper: wipe cached tensors
 # ---------------------------------------------------------------------------
 
@@ -270,7 +301,14 @@ def _wipe_tensors() -> None:
 # ---------------------------------------------------------------------------
 
 def _reset_to_defaults() -> None:
-    """Reset all session state to initial defaults and wipe tensor cache."""
+    """Reset all session state to initial defaults and wipe tensor cache.
+
+    Widget keys (_preset_select, _metric_input, etc.) are NOT written here
+    because some widgets (e.g. the sidebar selectbox) may already be
+    instantiated.  Instead, _reset_requested=True is set so that the block
+    at the top of the next rerun deletes those keys before any widget renders,
+    causing Streamlit to use each widget's default value/index.
+    """
     force_defaults = {
         "lambda_str": "0",
         "kappa_str": "8*pi*G",
@@ -292,12 +330,7 @@ def _reset_to_defaults() -> None:
         "_ansatz_steps": [],
         "_ansatz_base_metric": None,
         "_use_general_ansatz": False,
-        # Widget keys
-        "_lambda_input": "0",
-        "_kappa_input": "8*pi*G",
-        "_metric_input": "diag(-1, 1, 1, 1)",
-        "_T_input": "0",
-        "_preset_select": "(none)",
+        "_reset_requested": True,   # widget keys cleared at top of next rerun
     }
     for k, v in force_defaults.items():
         st.session_state[k] = v
