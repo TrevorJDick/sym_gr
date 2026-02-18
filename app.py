@@ -237,6 +237,8 @@ _init_state()
 if st.session_state.pop("_reset_requested", False):
     _WIDGET_KEYS_TO_CLEAR = [
         "_preset_select",
+        "_coord_preset_select",
+        "_coords_input",
         "_lambda_input",
         "_kappa_input",
         "_metric_input",
@@ -420,9 +422,14 @@ with st.sidebar:
         st.session_state["_T_from_grid"]      = False
         st.session_state["_last_applied_preset"] = preset_choice
         st.session_state["_sig_info"] = None
+        # Sync coord widget keys (main body — not yet rendered at sidebar time).
+        # Without this, render_coord_config() sees a stale _coord_preset_select
+        # value, triggers its mismatch branch, and overwrites coords_str/metric_str.
+        st.session_state["_coord_preset_select"] = p["coord_preset"]
+        st.session_state["_coords_input"] = p["coords"]
 
         if p.get("ansatz_steps"):
-            # Step-based preset: start from the general ansatz, pre-populate steps
+            # Step-based preset: start from the general ansatz, pre-populate steps.
             from ui.ansatz_steps import _make_step
             st.session_state["_ansatz_steps"] = [
                 _make_step(
@@ -443,8 +450,12 @@ with st.sidebar:
             st.session_state["_use_general_ansatz"] = False
 
         _wipe_tensors()
-    elif preset_choice == "(none)":
+    elif preset_choice == "(none)" and _last is not None:
+        # User explicitly cleared the preset — reset to general ansatz with empty steps.
         st.session_state["_last_applied_preset"] = None
+        st.session_state["_ansatz_steps"] = []
+        st.session_state["_use_general_ansatz"] = True
+        _wipe_tensors()
 
     st.divider()
 
