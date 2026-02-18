@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from sympy import Expr, Integer, diff, simplify
+from sympy import Expr, Integer, cancel, diff, simplify
 from sympy import Matrix
 from sympy.tensor.array import ImmutableDenseNDimArray
 
@@ -227,6 +227,66 @@ def compute_einstein(
             G[mu][nu] = ricci[mu, nu] - (ricci_scalar * metric[mu, nu]) / 2
 
     return ImmutableDenseNDimArray(G)
+
+
+def compute_bianchi_check(
+    coords: Sequence[Expr],
+    einstein: ImmutableDenseNDimArray,
+    christoffel: ImmutableDenseNDimArray,
+    metric_inv: Matrix,
+) -> list:
+    """
+    Verify the contracted Bianchi identity ∇_λ G^λ_ν = 0.
+
+    Computes the covariant divergence of the mixed Einstein tensor G^λ_ν
+    for each free index ν.  The result should be identically zero for any
+    metric-compatible (Levi-Civita) connection.
+
+    Formula:
+        G^λ_ν  = g^{λα} G_{αν}          (raise first index)
+        ∇_λ G^λ_ν = ∂_λ G^λ_ν
+                   + Γ^λ_{λρ} G^ρ_ν
+                   − Γ^ρ_{λν} G^λ_ρ
+
+    Parameters
+    ----------
+    coords : sequence of sympy.Expr
+        Ordered coordinate symbols.
+    einstein : ImmutableDenseNDimArray, shape (n, n)
+        Covariant Einstein tensor G_{μν}.
+    christoffel : ImmutableDenseNDimArray, shape (n, n, n)
+        Christoffel symbols Γ^σ_{μν}.
+    metric_inv : sympy.Matrix
+        Contravariant metric tensor g^{μν}.
+
+    Returns
+    -------
+    list of sympy.Expr, length n
+        Components of the covariant divergence, each reduced by cancel().
+        All should evaluate to zero for a consistent computation.
+    """
+    n = len(coords)
+
+    # Mixed Einstein tensor G^λ_ν = g^{λα} G_{αν}
+    G_up = [[Integer(0)] * n for _ in range(n)]
+    for lam in range(n):
+        for nu in range(n):
+            G_up[lam][nu] = sum(
+                metric_inv[lam, alpha] * einstein[alpha, nu]
+                for alpha in range(n)
+            )
+
+    result = []
+    for nu in range(n):
+        div: Expr = Integer(0)
+        for lam in range(n):
+            div += diff(G_up[lam][nu], coords[lam])
+            for rho in range(n):
+                div += christoffel[lam, lam, rho] * G_up[rho][nu]
+                div -= christoffel[rho, lam, nu] * G_up[lam][rho]
+        result.append(cancel(div))
+
+    return result
 
 
 def simplify_array(arr: ImmutableDenseNDimArray) -> ImmutableDenseNDimArray:

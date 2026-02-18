@@ -167,6 +167,7 @@ def _init_state() -> None:
         "ricci": None,
         "ricci_scalar": None,
         "einstein": None,
+        "bianchi": None,
         "field_eqs": None,
         "constrained_eqs": None,
         "rhs_tensor": None,
@@ -206,6 +207,7 @@ TENSOR_KEYS = [
     "ricci",
     "ricci_scalar",
     "einstein",
+    "bianchi",
     "field_eqs",
     "constrained_eqs",
     "rhs_tensor",
@@ -1082,6 +1084,54 @@ with st.expander(
                 symmetry=True, show_zeros=chk_ein_zeros,
             )
 
+            st.divider()
+            st.markdown("**Contracted Bianchi identity**")
+            st.caption(
+                r"$\nabla_\lambda G^\lambda{}_\nu = 0$ is a mathematical identity "
+                r"satisfied by any Einstein tensor computed from a metric-compatible connection. "
+                r"Verifying it numerically confirms internal consistency of the computation."
+            )
+            bianchi_btn = st.button(
+                "Verify  ∇_λ G^λ_ν = 0",
+                key="_bianchi_btn",
+                help=(
+                    "Computes the covariant divergence of the mixed Einstein tensor G^λ_ν "
+                    "for each coordinate index ν. All n components should cancel to zero."
+                ),
+            )
+            if bianchi_btn or st.session_state.get("bianchi") is not None:
+                if bianchi_btn or st.session_state["bianchi"] is None:
+                    with st.spinner("Computing Bianchi identity check…"):
+                        try:
+                            st.session_state["bianchi"] = st_obj.bianchi_check(
+                                simplified=simplified
+                            )
+                        except Exception as e:
+                            st.error(f"Bianchi check failed: {e}")
+
+                if st.session_state["bianchi"] is not None:
+                    from sympy import latex as _bianchi_latex
+                    bianchi_res = st.session_state["bianchi"]
+                    all_zero = all(c == 0 for c in bianchi_res)
+                    if all_zero:
+                        st.success("✓ All components are identically zero — identity confirmed.")
+                    else:
+                        for _nu, _c in enumerate(bianchi_res):
+                            _nu_label = str(st_obj.coords[_nu])
+                            if _c == 0:
+                                st.markdown(
+                                    rf"$\nabla_\lambda G^\lambda{{}}_{{{_nu_label}}} = 0$ ✓"
+                                )
+                            else:
+                                st.latex(
+                                    rf"\nabla_\lambda G^\lambda{{}}_{{{_nu_label}}} = "
+                                    + _bianchi_latex(_c)
+                                )
+                        st.caption(
+                            "Non-zero residuals above may still vanish under stronger simplification. "
+                            "Enable **Simplify results** in the metric section and recompute."
+                        )
+
 # ---- Field equations -------------------------------------------------------
 
 def _efe_title() -> str:
@@ -1106,6 +1156,9 @@ with st.expander(
     st.caption(
         "Independent non-trivial components of the Einstein field equations, "
         "after removing duplicates (symmetry of $G_{\\mu\\nu}$) and identically zero equations. "
+        "The contracted Bianchi identity $\\nabla_\\lambda G^\\lambda{}_\\nu = 0$ "
+        "provides $n$ further constraints, reducing the 10 metric unknowns to at most 6 truly "
+        "independent equations — verify this with the button in the Einstein tensor expander above. "
         "Enter substitution rules below to apply a known solution or equation of state and verify residuals."
     )
     st_obj = _get_spacetime()
