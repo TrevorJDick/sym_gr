@@ -156,11 +156,37 @@ def render_constants_helper() -> None:
 # Section 1d: live equation summary (pure string logic, no SymPy)
 # ---------------------------------------------------------------------------
 
+def _expr_to_latex(expr_str: str, fallback: str) -> str:
+    """
+    Try to convert a user-entered expression string to LaTeX for display.
+
+    Returns *fallback* if parsing fails.
+    """
+    import re
+    from sympy.parsing.sympy_parser import parse_expr
+    from sympy import latex as sp_latex, pi, symbols as sp_symbols
+
+    s = expr_str.strip()
+    if not s:
+        return fallback
+    # Auto-create any bare names as symbols so parse_expr doesn't choke
+    tokens = set(re.findall(r'\b([A-Za-z][A-Za-z0-9_]*)\b', s))
+    local: dict = {"pi": pi}
+    builtins = {"pi", "E", "I", "oo", "sin", "cos", "sqrt", "exp", "log"}
+    for tok in tokens:
+        if tok not in builtins:
+            local[tok] = sp_symbols(tok)
+    try:
+        return sp_latex(parse_expr(s, local_dict=local, evaluate=True))
+    except Exception:
+        return fallback
+
+
 def render_efe_result(lambda_str: str, kappa_str: str, T_str: str) -> None:
     """
     Show a simplified LaTeX equation based on what terms are non-zero.
 
-    This is pure string/LaTeX logic — no SymPy calls.
+    Renders the actual entered values of Λ and κ rather than generic symbols.
     """
     lam = lambda_str.strip()
     T   = T_str.strip()
@@ -179,14 +205,31 @@ def render_efe_result(lambda_str: str, kappa_str: str, T_str: str) -> None:
         )
         return
 
+    # Render actual values as LaTeX where possible
+    lam_tex = _expr_to_latex(lam, r"\Lambda")
+    kap_tex = _expr_to_latex(kap, r"\kappa")
+
     if lam_zero and T_zero:
         st.latex(r"G_{\mu\nu} = 0")
     elif not lam_zero and T_zero:
-        st.latex(r"G_{\mu\nu} = -\Lambda\, g_{\mu\nu}")
+        # RHS is -Λ g_μν; compute -Λ so the displayed sign is explicit
+        try:
+            import re
+            from sympy.parsing.sympy_parser import parse_expr
+            from sympy import latex as sp_latex, pi, symbols as sp_symbols
+            tokens = set(re.findall(r'\b([A-Za-z][A-Za-z0-9_]*)\b', lam))
+            local: dict = {"pi": pi}
+            for tok in tokens:
+                if tok not in {"pi", "E", "I", "oo", "sin", "cos", "sqrt", "exp", "log"}:
+                    local[tok] = sp_symbols(tok)
+            neg_lam_tex = sp_latex(-parse_expr(lam, local_dict=local, evaluate=True))
+        except Exception:
+            neg_lam_tex = r"-\left(" + lam_tex + r"\right)"
+        st.latex(rf"G_{{\mu\nu}} = {neg_lam_tex}\, g_{{\mu\nu}}")
     elif lam_zero and not T_zero:
-        st.latex(r"G_{\mu\nu} = \kappa\, T_{\mu\nu}")
+        st.latex(rf"G_{{\mu\nu}} = {kap_tex}\, T_{{\mu\nu}}")
     else:
-        st.latex(r"G_{\mu\nu} + \Lambda\, g_{\mu\nu} = \kappa\, T_{\mu\nu}")
+        st.latex(rf"G_{{\mu\nu}} + \left({lam_tex}\right) g_{{\mu\nu}} = {kap_tex}\, T_{{\mu\nu}}")
 
 
 # ---------------------------------------------------------------------------
