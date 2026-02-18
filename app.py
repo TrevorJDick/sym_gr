@@ -303,25 +303,26 @@ def _wipe_tensors() -> None:
 # ---------------------------------------------------------------------------
 
 def _reset_to_defaults() -> None:
-    """Reset all session state to initial defaults and wipe tensor cache.
+    """Reset to the beginning of the current preset, or to a blank general ansatz.
 
-    Widget keys (_preset_select, _metric_input, etc.) are NOT written here
-    because some widgets (e.g. the sidebar selectbox) may already be
-    instantiated.  Instead, _reset_requested=True is set so that the block
-    at the top of the next rerun deletes those keys before any widget renders,
-    causing Streamlit to use each widget's default value/index.
+    If a preset is active, all its parameters (coords, EFE terms, steps) are
+    restored to their initial values with every step marked pending — effectively
+    "restart this derivation from scratch."
+
+    If no preset is active, resets to a general ansatz in the current coordinates
+    with an empty step log.
+
+    Widget keys are NOT written directly here because some (e.g. the sidebar
+    selectbox) may already be instantiated.  _reset_requested=True causes the
+    block at the top of the next rerun to delete those keys safely.
     """
-    force_defaults = {
-        "lambda_str": "0",
-        "kappa_str": "8*pi*G",
-        "T_str": "0",
-        "coord_preset": "Cartesian 4D",
-        "signature": "-+++",
-        "coords_str": "t, x, y, z",
-        "metric_str": "diag(-1, 1, 1, 1)",
+    current_preset = st.session_state.get("_last_applied_preset")
+    p = PRESETS.get(current_preset) if current_preset else None
+
+    # Common state to always reset
+    common = {
         "simplified": False,
         "_input_key": None,
-        "_last_applied_preset": None,
         "_metric_from_grid": False,
         "_last_expr_synced_to_grid": "",
         "_T_from_grid": False,
@@ -329,13 +330,45 @@ def _reset_to_defaults() -> None:
         "efe_config": None,
         "_sig_info": None,
         "_pending_metric_update": None,
-        "_ansatz_steps": [],
         "_ansatz_base_metric": None,
-        "_use_general_ansatz": True,   # generate fresh general ansatz in Section 4
-        "_reset_requested": True,      # widget keys cleared at top of next rerun
+        "_reset_requested": True,  # widget keys cleared at top of next rerun
     }
-    for k, v in force_defaults.items():
+    for k, v in common.items():
         st.session_state[k] = v
+
+    if p:
+        # Restore preset parameters
+        st.session_state["lambda_str"]   = p["lambda_str"]
+        st.session_state["kappa_str"]    = p["kappa_str"]
+        st.session_state["T_str"]        = p["T_str"]
+        st.session_state["coord_preset"] = p["coord_preset"]
+        st.session_state["signature"]    = p["signature"]
+        st.session_state["coords_str"]   = p["coords"]
+        st.session_state["_coord_preset_select"] = p["coord_preset"]
+        st.session_state["_coords_input"] = p["coords"]
+        st.session_state["_T_input"] = p["T_str"]
+
+        if p.get("ansatz_steps"):
+            from ui.ansatz_steps import _make_step
+            st.session_state["_ansatz_steps"] = [
+                _make_step(
+                    description=s["description"],
+                    step_type=s["step_type"],
+                    content=s["content"],
+                )
+                for s in p["ansatz_steps"]
+            ]
+            st.session_state["_use_general_ansatz"] = True
+        else:
+            metric = p.get("metric", "")
+            st.session_state["metric_str"] = metric
+            st.session_state["_ansatz_steps"] = []
+            st.session_state["_use_general_ansatz"] = False
+    else:
+        # No preset — general ansatz in current coordinates, empty step log
+        st.session_state["_ansatz_steps"] = []
+        st.session_state["_use_general_ansatz"] = True
+
     # Clear grid widget state
     for key in list(st.session_state.keys()):
         if key.startswith("mg_") or key.startswith("tg_"):
