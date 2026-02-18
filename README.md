@@ -13,8 +13,11 @@ A Python toolkit for symbolic tensor computation and equation derivation in Gene
 `sym_gr` provides a clean Python API and an interactive Streamlit UI for:
 
 - Defining a spacetime metric over arbitrary coordinates
+- Applying named symmetry reductions (diagonal, static, custom constraints) step by step
 - Computing derived geometric objects: Christoffel symbols, Riemann tensor, Ricci tensor, Ricci scalar, Einstein tensor
+- Verifying the contracted Bianchi identity ∇_λ G^λ_ν = 0 as a consistency check
 - Configuring the full Einstein field equation (Λ, κ, T_μν) before any computation
+- Generating field equations with a full verbose derivation trace (RHS construction, dropped components, index labels, Bianchi redundancy)
 - Entering constraints as SymPy expressions and reducing the resulting ODE/PDE system
 - Exporting the full derivation as a narrative LaTeX document or a runnable Python script
 
@@ -27,20 +30,18 @@ The key design principle: **the toolkit makes no physical assumptions**. The use
 In GR, the metric is not known in advance — it is the *solution* to the Einstein field equations. To make the problem tractable, a researcher typically:
 
 1. **Chooses a coordinate system** — e.g. `(t, r, θ, φ)` for spherical coordinates
-2. **Applies symmetry assumptions** — e.g. static + spherical symmetry forces the metric to be diagonal with specific structure
-3. **Writes a metric ansatz** — the symmetry-reduced form with unknown functions standing in for the components not yet determined, e.g.:
+2. **Applies symmetry assumptions** — e.g. static + spherical symmetry forces the metric to be diagonal
+3. **Writes a metric ansatz** — the symmetry-reduced form with unknown functions, e.g.:
 
    ```
    ds² = -A(r) dt² + B(r) dr² + r² dθ² + r² sin²θ dφ²
    ```
 
-   Here `A(r)` and `B(r)` are unknown functions. The ansatz encodes *what you know about the solution's structure* without assuming the solution itself.
-
-4. **Computes the Einstein tensor** `G_μν` symbolically — this produces expressions in terms of `A(r)`, `B(r)`, and their derivatives
-5. **Sets physical conditions** — e.g. vacuum (`T_μν = 0`, `Λ = 0`) gives `G_μν = 0`, yielding a system of ODEs for `A(r)` and `B(r)`
+4. **Computes the Einstein tensor** `G_μν` symbolically
+5. **Sets physical conditions** — e.g. vacuum (`T_μν = 0`, `Λ = 0`) gives `G_μν = 0`
 6. **Applies further constraints** — e.g. a candidate solution to verify it satisfies the equations
 
-**This tool handles steps 4–6.** Steps 1–3 are the researcher's physical reasoning — the tool takes that ansatz as input.
+**This tool handles all six steps.** Steps 1–3 are supported via coordinate presets, the general ansatz builder, and named symmetry reductions. Steps 4–6 are the core computational pipeline.
 
 ---
 
@@ -59,24 +60,37 @@ pip install -e ".[ui]"
 streamlit run app.py
 ```
 
-The app opens in your browser at `http://localhost:8501`. It is organised as a linear scrolling page with four sections:
+The app opens in your browser at `http://localhost:8501`. It is organised as a linear scrolling page with five sections:
 
 | Section | Purpose |
 |---------|---------|
-| **1 · EFE Setup** | Configure Λ, κ, and T_μν. The resulting equation updates live (e.g. `G_μν = 0` for vacuum). |
-| **2 · Coordinate System** | Pick a coordinate preset (Cartesian, Spherical, Cylindrical, Schwarzschild ansatz) or enter custom coordinates. Set signature −+++ / +−−−. |
-| **3 · Metric Ansatz** | Enter the metric as a SymPy expression (`diag(...)` or `Matrix([[...]])`) or fill in an interactive n×n grid. The two input modes stay in sync automatically. |
-| **4 · Results** | Expandable panels for each tensor. Toggle step-by-step derivation, show/hide zero components. Generate field equations, apply constraints. |
+| **1 · EFE Setup** | Configure Λ, κ, and T_μν. The equation preview updates live, rendering the actual values (e.g. `G_μν = 3/L² g_μν` for Anti-de Sitter). |
+| **2 · Coordinate System** | Pick a coordinate preset or enter custom coordinates. |
+| **3 · Stress-Energy Tensor T_μν** | Enter T_μν via expression or interactive grid; the two stay in sync. |
+| **4 · Metric Ansatz** | Enter the metric, or use **Fill with general ansatz** then apply named symmetry reductions (diagonal, static, custom constraints) step by step. |
+| **5 · Results** | Expandable panels for each tensor. Toggle step-by-step derivation, show/hide zero components. Generate field equations with optional **Verbose derivation** trace. Verify the Bianchi identity. Apply constraints and simplify. Export to LaTeX or Python. |
 
-**Sidebar:** Load a built-in preset (Minkowski, Schwarzschild ansatz, de Sitter, Flat polar) to pre-fill all sections.
+**Sidebar:** Load a built-in preset to pre-fill all sections.
 
-**Export:** Download a narrative LaTeX document (`.tex`) or a runnable Python script (`.py`) from inside the Results section.
+| Preset | Physics |
+|--------|---------|
+| Minkowski | Flat spacetime sanity check |
+| Schwarzschild ansatz | Static spherically symmetric vacuum |
+| de Sitter | Positive cosmological constant |
+| Flat polar | Flat space in spherical coordinates |
+| FLRW (flat) | Cosmological metric with scale factor `a(t)` and perfect fluid T_μν |
+| Anti-de Sitter | Poincaré patch with Λ = −3/L² |
+| Kerr | Rotating black hole in Boyer-Lindquist coordinates (slow) |
+
+**Verbose derivation** (field equations): a single toggle in the Field Equations expander reveals the full derivation trace — RHS construction, dropped 0=0 components, index-labelled equations, per-equation simplification stages, and Bianchi redundancy count. All items flow into the LaTeX export.
+
+**Bianchi identity check**: the Einstein tensor expander includes a "Verify ∇_λ G^λ_ν = 0" button that computes the contracted Bianchi identity component by component as a numerical consistency check.
 
 ---
 
 ## API
 
-All computation is done through standard SymPy objects. The entry point is a `Spacetime` object that takes coordinates and a metric matrix.
+All computation is done through standard SymPy objects. The entry point is a `Spacetime` object.
 
 ### Defining a spacetime
 
@@ -105,14 +119,24 @@ ricci_sc    = st.ricci_scalar()      # R,        scalar
 einstein    = st.einstein()          # G_μν,     shape (4,4)
 ```
 
+### Verifying the Bianchi identity
+
+```python
+# Returns list of n expressions; all should be zero
+residuals = st.bianchi_check()
+print(all(c == 0 for c in residuals))  # True
+```
+
 ### Extracting independent equations
 
 ```python
-from core.system import field_equations
+from core.system import field_equations_classified
 
-# Vacuum EFE: G_μν = 0
-eqs = field_equations(st.einstein(), condition=0)
-# Returns list of sympy.Eq objects for independent non-trivial components
+# Returns equations, (mu,nu) labels, and dropped index pairs
+result = field_equations_classified(st.einstein(), condition=0)
+print(len(result.equations))  # non-trivial equations
+print(result.labels)          # [(mu,nu), ...] for each equation
+print(result.dropped)         # [(mu,nu), ...] for 0=0 components
 ```
 
 ### Adding user constraints
@@ -129,7 +153,7 @@ constraints = [
     Eq(B(r), 1 / (1 - 2/r)),
 ]
 
-reduced = apply_constraints(eqs, constraints, auto_simplify=True)
+reduced = apply_constraints(result.equations, constraints, auto_simplify=True)
 ```
 
 ### LaTeX output
@@ -160,7 +184,7 @@ pip install -e .
 python -m examples.minkowski
 ```
 
-**Schwarzschild vacuum derivation** (slow, ~60–90s — symbolic derivatives over a 4D metric with unknown functions):
+**Schwarzschild vacuum derivation** (slow, ~60–90s):
 ```bash
 python -m examples.schwarzschild
 ```
@@ -192,14 +216,15 @@ All 10 tests pass in under 2 seconds.
 sym_gr/
 ├── app.py                    # Streamlit UI entry point
 ├── core/
-│   ├── spacetime.py          # Spacetime class: coordinates + metric
-│   ├── tensors.py            # Christoffel, Riemann, Ricci, Einstein
+│   ├── spacetime.py          # Spacetime class: coordinates + metric + Bianchi check
+│   ├── tensors.py            # Christoffel, Riemann, Ricci, Einstein, Bianchi check
 │   ├── derivation.py         # Step-by-step derivation data (Christoffel, Riemann)
-│   ├── system.py             # Extract independent field equations
-│   └── constraints.py        # Apply user-defined constraints
+│   ├── system.py             # field_equations() and field_equations_classified()
+│   ├── constraints.py        # Apply user-defined constraints
+│   └── ansatz.py             # General metric symbols and symmetry reductions
 ├── ui/
 │   ├── parse.py              # Parse user strings into SymPy objects
-│   ├── display.py            # LaTeX rendering helpers (sympy.latex → st.latex)
+│   ├── display.py            # LaTeX rendering helpers
 │   ├── efe_config.py         # EFE banner, term controls, RHS tensor builder
 │   ├── coord_config.py       # Coordinate presets and signature selector
 │   ├── metric_grid.py        # Interactive n×n symmetric metric grid input
@@ -211,6 +236,7 @@ sym_gr/
 ├── tests/
 │   └── test_tensors.py       # 10 unit tests
 ├── docs/
+│   ├── presets.md            # Documentation and references for all built-in presets
 │   └── references.md         # Annotated bibliography
 └── pyproject.toml
 ```
@@ -229,7 +255,7 @@ Contributions welcome. Please open an issue before submitting a large PR. Code s
 
 ## References
 
-See [`docs/references.md`](docs/references.md) for a full annotated bibliography of all prior work, tools, and mathematical references that informed this project.
+See [`docs/references.md`](docs/references.md) for a full annotated bibliography and [`docs/presets.md`](docs/presets.md) for derivation notes and references for each built-in preset.
 
 ---
 
