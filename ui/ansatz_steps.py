@@ -56,9 +56,15 @@ def _current_metric_str() -> str:
 
 
 def _push_metric(new_str: str, wipe_fn) -> None:
-    """Write a new metric string into session state and wipe tensor cache."""
+    """Stage a new metric string for the next rerun and wipe tensor cache.
+
+    Writes to _pending_metric_update (not _metric_input directly) because
+    the text area widget keyed to _metric_input has already rendered by the
+    time the step log runs.  The pending value is flushed into _metric_input
+    before the text area renders on the subsequent rerun.
+    """
     st.session_state["metric_str"] = new_str
-    st.session_state["_metric_input"] = new_str
+    st.session_state["_pending_metric_update"] = new_str
     st.session_state["_last_expr_synced_to_grid"] = ""
     wipe_fn()
 
