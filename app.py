@@ -331,8 +331,8 @@ def _reset_to_defaults() -> None:
         "_pending_metric_update": None,
         "_ansatz_steps": [],
         "_ansatz_base_metric": None,
-        "_use_general_ansatz": False,
-        "_reset_requested": True,   # widget keys cleared at top of next rerun
+        "_use_general_ansatz": True,   # generate fresh general ansatz in Section 4
+        "_reset_requested": True,      # widget keys cleared at top of next rerun
     }
     for k, v in force_defaults.items():
         st.session_state[k] = v
