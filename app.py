@@ -808,6 +808,26 @@ def _need_compute_msg():
     st.info("Press **Compute** above to run the calculation.")
 
 
+# ── Conventions reference ────────────────────────────────────────────────────
+with st.expander("Conventions & index notation", expanded=False):
+    st.caption("Carroll (2004) conventions throughout, signature (−, +, +, +).")
+    st.latex(
+        r"\Gamma^\sigma{}_{\mu\nu} = \tfrac{1}{2}\,g^{\sigma\rho}"
+        r"\!\left(\partial_\mu g_{\nu\rho} + \partial_\nu g_{\mu\rho} - \partial_\rho g_{\mu\nu}\right)"
+    )
+    st.latex(
+        r"R^\rho{}_{\sigma\mu\nu} = \partial_\mu\Gamma^\rho_{\nu\sigma}"
+        r" - \partial_\nu\Gamma^\rho_{\mu\sigma}"
+        r" + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma}"
+        r" - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}"
+    )
+    st.latex(
+        r"R_{\mu\nu} = R^\rho{}_{\mu\rho\nu}"
+        r"\qquad R = g^{\mu\nu}R_{\mu\nu}"
+        r"\qquad G_{\mu\nu} = R_{\mu\nu} - \tfrac{1}{2}R\,g_{\mu\nu}"
+    )
+
+
 # Track whether any tensor computed for the first time this render pass.
 # If so, we rerun at the end so the updated expanded= flags take effect.
 _did_compute = False
@@ -817,6 +837,11 @@ with st.expander(
     "Christoffel Symbols  Γ^σ_μν",
     expanded=st.session_state.get("_chri_expanded", False),
 ):
+    st.caption(
+        r"Connection coefficients of the metric. "
+        r"$\Gamma^\sigma{}_{\mu\nu} = 0$ in locally flat (normal) coordinates; "
+        r"non-zero here reflects coordinate curvature, not necessarily spacetime curvature."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -903,6 +928,11 @@ with st.expander(
     "Riemann Tensor  R^ρ_σμν",
     expanded=st.session_state.get("_riem_expanded", False),
 ):
+    st.caption(
+        r"Measures intrinsic spacetime curvature. "
+        r"$R^\rho{}_{\sigma\mu\nu} = 0$ everywhere iff the spacetime is flat. "
+        r"Only components with $\mu < \nu$ are shown (antisymmetry in last two indices)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -965,6 +995,11 @@ with st.expander(
     "Ricci Tensor  R_μν",
     expanded=st.session_state.get("_ricci_expanded", False),
 ):
+    st.caption(
+        r"$R_{\mu\nu} = R^\rho{}_{\mu\rho\nu}$ — contract Riemann on its 1st and 3rd indices. "
+        r"Symmetric: $R_{\mu\nu} = R_{\nu\mu}$. "
+        r"Vanishes in vacuum ($G_{\mu\nu} = 0$) only if $R_{\mu\nu} = 0$ (follows from the EFE with $\Lambda = 0$)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -993,6 +1028,10 @@ with st.expander(
     "Ricci Scalar  R",
     expanded=st.session_state.get("_rscalar_expanded", False),
 ):
+    st.caption(
+        r"$R = g^{\mu\nu} R_{\mu\nu}$ — full contraction of the Ricci tensor. "
+        r"Constant on maximally symmetric spaces (e.g. $R = 4\Lambda$ for de Sitter, $R = -12/L^2$ for AdS)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -1015,6 +1054,11 @@ with st.expander(
     "Einstein Tensor  G_μν",
     expanded=st.session_state.get("_ein_expanded", False),
 ):
+    st.caption(
+        r"$G_{\mu\nu} = R_{\mu\nu} - \tfrac{1}{2}R\,g_{\mu\nu}$ — the LHS of the Einstein field equations. "
+        r"Automatically satisfies $\nabla^\mu G_{\mu\nu} = 0$ (contracted Bianchi identity), "
+        r"which guarantees $\nabla^\mu T_{\mu\nu} = 0$ (stress-energy conservation)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -1059,6 +1103,11 @@ with st.expander(
     _efe_title(),
     expanded=st.session_state.get("_efe_expanded", False),
 ):
+    st.caption(
+        "Independent non-trivial components of the Einstein field equations, "
+        "after removing duplicates (symmetry of $G_{\\mu\\nu}$) and identically zero equations. "
+        "Enter substitution rules below to apply a known solution or equation of state and verify residuals."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
