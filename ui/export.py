@@ -467,6 +467,172 @@ the configured Einstein field equations.
     return "\n".join(lines) + "\n"
 
 
+def _sec_field_equations_verbose(
+    eqs: list,
+    labels: list,
+    dropped: list,
+    rhs_tensor,
+    coords: list,
+    lambda_str: str,
+    kappa_str: str,
+    T_str: str,
+    bianchi_results: list | None = None,
+) -> str:
+    """
+    Verbose LaTeX section for field equations.
+
+    Documents all four derivation steps:
+    1. RHS construction (κ·T_μν − Λ·g_μν)
+    2. Upper-triangle enumeration with dropped components listed
+    3. Each surviving equation labeled by (μ, ν) index pair
+    4. Bianchi redundancy note
+    """
+    from sympy import Matrix as SMatrix, Integer as _Int
+
+    n = len(coords)
+    n_upper = n * (n + 1) // 2
+    lam = lambda_str.strip()
+    kap = kappa_str.strip()
+    T   = T_str.strip()
+
+    efe_lhs = _efe_lhs_latex(lambda_str)
+    efe_rhs = _efe_rhs_latex(T_str, kappa_str)
+
+    lines = [
+        r"\section*{Field Equations --- Verbose Derivation}",
+        "",
+        r"This section documents every step from EFE configuration to the",
+        r"final independent equations, including components dropped as",
+        r"identically satisfied and the Bianchi redundancy count.",
+        "",
+    ]
+
+    # ── Step 1: RHS construction ─────────────────────────────────────────────
+    lines += [
+        r"\subsection*{Step 1: Right-Hand Side Construction}",
+        "",
+        r"Each component equation has the form $G_{\mu\nu} = \mathrm{RHS}_{\mu\nu}$",
+        r"where the right-hand side is assembled as",
+        r"\begin{equation}",
+        r"  \mathrm{RHS}_{\mu\nu}"
+        r"  = \kappa\,T_{\mu\nu} - \Lambda\,g_{\mu\nu}",
+        r"  = " + latex_scalar(kap) + r"\,T_{\mu\nu}"
+        + (" - " + latex_scalar(lam) + r"\,g_{\mu\nu}" if lam not in ("0", "") else ""),
+        r".\end{equation}",
+        "",
+    ]
+    if rhs_tensor is None or (lam in ("0", "") and T in ("0", "")):
+        lines.append(
+            r"Since $\Lambda = 0$ and $T_{\mu\nu} = 0$, the right-hand side "
+            r"vanishes identically: $\mathrm{RHS}_{\mu\nu} = 0$."
+        )
+    else:
+        rhs_mat = SMatrix([[rhs_tensor[mu, nu] for nu in range(n)] for mu in range(n)])
+        lines += [
+            r"Evaluating per component:",
+            r"\begin{equation}",
+            r"  \mathrm{RHS}_{\mu\nu} = " + _matrix_latex(rhs_mat) + r".",
+            r"\end{equation}",
+        ]
+    lines.append("")
+
+    # ── Step 2: Upper-triangle enumeration ───────────────────────────────────
+    lines += [
+        r"\subsection*{Step 2: Upper-Triangle Enumeration}",
+        "",
+        rf"For a symmetric tensor ($G_{{\mu\nu}} = G_{{\nu\mu}}$) there are"
+        rf" $\binom{{n+1}}{{2}} = {n_upper}$ independent components"
+        r" (upper triangle $\mu \leq \nu$ only)."
+        r" Components where $G_{\mu\nu} = \mathrm{RHS}_{\mu\nu}$ identically"
+        r" (i.e.\ $0 = 0$ after symbolic comparison) are excluded as trivially"
+        r" satisfied.",
+        "",
+    ]
+    if dropped:
+        drop_strs = [
+            rf"$(\mu={latex(coords[mu])},\;\nu={latex(coords[nu])})$"
+            for mu, nu in dropped
+        ]
+        lines += [
+            rf"\textbf{{{len(dropped)} trivially satisfied}} (excluded): "
+            + ", ".join(drop_strs) + ".",
+            "",
+        ]
+    else:
+        lines += [
+            r"No components are trivially satisfied; all upper-triangle entries"
+            r" are non-trivial.",
+            "",
+        ]
+    lines.append(
+        rf"\textbf{{{len(eqs)} non-trivial equations}} survive and are"
+        r" listed in Step~3."
+    )
+    lines.append("")
+
+    # ── Step 3: Labeled field equations ──────────────────────────────────────
+    lines += [
+        r"\subsection*{Step 3: Independent Field Equations}",
+        "",
+        rf"Setting ${efe_lhs} = {efe_rhs}$, the surviving component equations are:",
+        "",
+    ]
+    for i, (eq, (mu, nu)) in enumerate(zip(eqs, labels), start=1):
+        mu_t = latex(coords[mu])
+        nu_t = latex(coords[nu])
+        lines += [
+            rf"\paragraph*{{Equation ({i}), $[\mu = {mu_t},\; \nu = {nu_t}]$:}}",
+            r"\begin{equation}",
+            rf"  {latex(eq.lhs)} = {latex(eq.rhs)} \tag{{{i}}}\label{{eq:{i}}}",
+            r"\end{equation}",
+            "",
+        ]
+
+    # ── Step 4: Bianchi redundancy ───────────────────────────────────────────
+    lines += [r"\subsection*{Step 4: Bianchi Redundancy}", ""]
+    if bianchi_results is not None:
+        all_zero = all(c == 0 for c in bianchi_results)
+        n_bianchi = len(bianchi_results)
+        n_independent = max(0, len(eqs) - n_bianchi)
+        if all_zero:
+            bianchi_strs = ", ".join(
+                rf"$\nabla_\lambda G^\lambda{{}}_{{\ {latex(coords[nu])}}} = 0$"
+                for nu in range(n_bianchi)
+            )
+            lines += [
+                r"The contracted Bianchi identity"
+                r" $\nabla_\lambda G^\lambda{}_\nu = 0$ was verified"
+                r" numerically for all $\nu$:",
+                bianchi_strs + ".",
+                "",
+                rf"This provides $n = {n_bianchi}$ differential constraints"
+                rf" among the field equations, implying that at most"
+                rf" $\max(0,\,{len(eqs)} - {n_bianchi}) = {n_independent}$"
+                r" equations are truly independent.",
+                r"(Carroll, \textit{Spacetime and Geometry}, \S4.7;"
+                r" Wald, \textit{General Relativity}, \S6.1.)",
+            ]
+        else:
+            lines += [
+                r"The contracted Bianchi identity could not be fully"
+                r" verified (residuals remain after \texttt{cancel()})."
+                r" Enable \emph{Simplify results} and recompute.",
+            ]
+    else:
+        n_coords = len(coords)
+        lines += [
+            r"The contracted Bianchi identity $\nabla_\lambda G^\lambda{}_\nu = 0$"
+            r" was not computed in this session."
+            rf" In general it provides $n = {n_coords}$ differential constraints,"
+            r" reducing the number of truly independent equations accordingly.",
+            r"Use the \emph{Verify $\nabla_\lambda G^\lambda{}_\nu = 0$} button"
+            r" in the Einstein tensor section to confirm.",
+        ]
+    lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
 def _sec_next_steps(metric: Matrix, eqs: list | None) -> str:
     funcs = _unknown_functions(metric)
     if not funcs:
@@ -603,6 +769,11 @@ def build_full_latex(
     T_str: str = "0",
     signature: str = "-+++",
     applied_symmetries: list | None = None,
+    field_eq_verbose: bool = False,
+    field_eq_labels: list | None = None,
+    field_eq_dropped: list | None = None,
+    rhs_tensor=None,
+    bianchi_results: list | None = None,
 ) -> str:
     """Assemble a complete, narrative LaTeX document."""
     from sympy import Matrix as SMatrix
@@ -640,7 +811,20 @@ def build_full_latex(
         parts.append(_sec_einstein(einstein, coords))
 
     if field_eqs is not None:
-        parts.append(_sec_field_equations(field_eqs, lambda_str, kappa_str, T_str))
+        if field_eq_verbose and field_eq_labels is not None:
+            parts.append(_sec_field_equations_verbose(
+                field_eqs,
+                field_eq_labels,
+                field_eq_dropped or [],
+                rhs_tensor,
+                list(coords),
+                lambda_str,
+                kappa_str,
+                T_str,
+                bianchi_results=bianchi_results,
+            ))
+        else:
+            parts.append(_sec_field_equations(field_eqs, lambda_str, kappa_str, T_str))
         if constrained_eqs is not None:
             parts.append(_sec_constrained_equations(constrained_eqs, len(field_eqs)))
         parts.append(_sec_next_steps(m, field_eqs))
