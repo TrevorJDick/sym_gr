@@ -10,12 +10,20 @@ accounting for symmetry.
 
 from __future__ import annotations
 
-from typing import Literal, Sequence
+from typing import Literal, NamedTuple, Sequence
 
 from sympy import Eq, Expr, Integer
 from sympy.tensor.array import ImmutableDenseNDimArray
 
 from .constraints import _function_subs
+
+
+class FieldEquationResult(NamedTuple):
+    """Return value of :func:`field_equations_classified`."""
+
+    equations: list  # list[Eq]  — non-trivial equations
+    labels: list     # list[tuple[int,int]]  — (mu, nu) for each kept equation
+    dropped: list    # list[tuple[int,int]]  — (mu, nu) for structurally trivial equations
 
 
 def field_equations(
@@ -78,6 +86,59 @@ def field_equations(
             eqs.append(Eq(comp, rhs))
 
     return eqs
+
+
+def field_equations_classified(
+    tensor: ImmutableDenseNDimArray,
+    condition: Expr | int = 0,
+    rhs_tensor: ImmutableDenseNDimArray | None = None,
+    symmetry: Literal["symmetric", "antisymmetric", "none"] = "symmetric",
+) -> FieldEquationResult:
+    """
+    Like :func:`field_equations` but also returns the (μ, ν) index pairs for
+    every kept and every dropped component.
+
+    Parameters
+    ----------
+    tensor, condition, rhs_tensor, symmetry
+        Same as :func:`field_equations`.
+
+    Returns
+    -------
+    FieldEquationResult
+        .equations — list[Eq], same content as field_equations()
+        .labels    — list[(mu, nu)] parallel to .equations
+        .dropped   — list[(mu, nu)] for structurally trivial components
+    """
+    if tensor.rank() != 2:
+        raise ValueError(
+            f"field_equations_classified expects a rank-2 tensor; got rank {tensor.rank()}."
+        )
+
+    n = tensor.shape[0]
+    equations: list = []
+    labels: list = []
+    dropped: list = []
+    scalar_rhs = Integer(condition) if isinstance(condition, int) else condition
+
+    for mu in range(n):
+        if symmetry == "symmetric":
+            nu_range = range(mu, n)
+        elif symmetry == "antisymmetric":
+            nu_range = range(mu + 1, n)
+        else:
+            nu_range = range(n)
+
+        for nu in nu_range:
+            comp = tensor[mu, nu]
+            rhs = rhs_tensor[mu, nu] if rhs_tensor is not None else scalar_rhs
+            if comp == rhs:
+                dropped.append((mu, nu))
+            else:
+                equations.append(Eq(comp, rhs))
+                labels.append((mu, nu))
+
+    return FieldEquationResult(equations=equations, labels=labels, dropped=dropped)
 
 
 def independent_equations(

@@ -31,6 +31,7 @@ from ui.display import (
     display_rank2_nonzero,
     display_scalar,
     display_equations,
+    display_equations_labeled,
 )
 from ui.efe_config import (
     render_efe_banner,
@@ -169,6 +170,8 @@ def _init_state() -> None:
         "einstein": None,
         "bianchi": None,
         "field_eqs": None,
+        "field_eq_labels": None,
+        "field_eq_dropped": None,
         "constrained_eqs": None,
         "rhs_tensor": None,
         # EFE config snapshot used for field-eq title
@@ -209,6 +212,8 @@ TENSOR_KEYS = [
     "einstein",
     "bianchi",
     "field_eqs",
+    "field_eq_labels",
+    "field_eq_dropped",
     "constrained_eqs",
     "rhs_tensor",
 ]
@@ -1181,7 +1186,7 @@ with st.expander(
 
             if gen_eqs or st.session_state["field_eqs"] is not None:
                 if gen_eqs or st.session_state["field_eqs"] is None:
-                    from core.system import field_equations
+                    from core.system import field_equations_classified
 
                     rhs_tensor = None
                     lam = st.session_state.get("lambda_str", "0").strip()
@@ -1206,10 +1211,13 @@ with st.expander(
                         st.session_state["rhs_tensor"] = None
 
                     try:
-                        st.session_state["field_eqs"] = field_equations(
+                        _feq_result = field_equations_classified(
                             st.session_state["einstein"],
                             rhs_tensor=st.session_state["rhs_tensor"],
                         )
+                        st.session_state["field_eqs"]       = _feq_result.equations
+                        st.session_state["field_eq_labels"] = _feq_result.labels
+                        st.session_state["field_eq_dropped"] = _feq_result.dropped
                         st.session_state["efe_config"] = (lam, T)
                         st.session_state["_efe_expanded"] = True
                         _did_compute = True
@@ -1218,7 +1226,138 @@ with st.expander(
 
                 if st.session_state["field_eqs"] is not None:
                     st.subheader("Equations")
-                    display_equations(st.session_state["field_eqs"])
+                    _verbose_efe = st.checkbox(
+                        "Verbose derivation",
+                        key="_chk_efe_verbose",
+                        help=(
+                            "Show the full derivation trace: RHS construction, "
+                            "dropped components, index-labelled equations, "
+                            "per-equation simplification stages, and Bianchi redundancy. "
+                            "All items are included in the LaTeX export when this is checked."
+                        ),
+                    )
+
+                    if _verbose_efe:
+                        from sympy import latex as _sp_latex, Matrix as _SpMat
+
+                        # ── 1. RHS construction ───────────────────────────────
+                        st.markdown("**1 · RHS construction: κ·T_μν − Λ·g_μν**")
+                        _rhs = st.session_state.get("rhs_tensor")
+                        if _rhs is None:
+                            st.caption(
+                                "Λ = 0 and T_μν = 0 → RHS = 0 for every component."
+                            )
+                        else:
+                            _n = len(st_obj.coords)
+                            _rhs_mat = _SpMat(
+                                [[_rhs[mu, nu] for nu in range(_n)] for mu in range(_n)]
+                            )
+                            from sympy import latex as _sp_latex2
+                            st.latex(
+                                r"\mathrm{RHS}_{\mu\nu} = \kappa T_{\mu\nu}"
+                                r" - \Lambda g_{\mu\nu} = "
+                                + _sp_latex2(_rhs_mat)
+                            )
+
+                        # ── 2. Dropped components ─────────────────────────────
+                        st.markdown("**2 · Dropped components (structurally 0 = 0)**")
+                        _dropped = st.session_state.get("field_eq_dropped") or []
+                        _labels  = st.session_state.get("field_eq_labels") or []
+                        _n_upper = len(st_obj.coords) * (len(st_obj.coords) + 1) // 2
+                        if _dropped:
+                            st.caption(
+                                f"{len(_dropped)} of {_n_upper} upper-triangle components "
+                                "are identically satisfied and excluded:"
+                            )
+                            _drop_strs = [
+                                rf"$\mu={_sp_latex(st_obj.coords[mu])},\;"
+                                rf"\nu={_sp_latex(st_obj.coords[nu])}$"
+                                for mu, nu in _dropped
+                            ]
+                            st.markdown("  ·  ".join(_drop_strs), unsafe_allow_html=True)
+                        else:
+                            st.caption(
+                                f"All {_n_upper} upper-triangle components are non-trivial "
+                                "(none dropped)."
+                            )
+
+                        # ── 3. Labeled equations ──────────────────────────────
+                        st.markdown(
+                            f"**3 · Field equations "
+                            f"({len(st.session_state['field_eqs'])} surviving)**"
+                        )
+                        display_equations_labeled(
+                            st.session_state["field_eqs"],
+                            _labels,
+                            st_obj.coords,
+                        )
+
+                        # ── 4. Per-equation simplification (opt-in) ───────────
+                        _efe_simp_cb = st.checkbox(
+                            "Show per-equation simplification stages",
+                            key="_chk_efe_verbose_simp",
+                            help=(
+                                "For each field equation run cancel → trigsimp → simplify "
+                                "and show which steps change the expression. "
+                                "Slow on large symbolic metrics."
+                            ),
+                        )
+                        if _efe_simp_cb:
+                            from core.constraints import simplify_equation_steps
+                            for _vi, (_veq, (_vmu, _vnu)) in enumerate(
+                                zip(st.session_state["field_eqs"], _labels), start=1
+                            ):
+                                _vc_mu = _sp_latex(st_obj.coords[_vmu])
+                                _vc_nu = _sp_latex(st_obj.coords[_vnu])
+                                st.markdown(
+                                    f"**Equation ({_vi})** "
+                                    rf"$[\mu={_vc_mu},\,\nu={_vc_nu}]$:"
+                                )
+                                st.latex(
+                                    rf"({_vi})\quad {_sp_latex(_veq.lhs)}"
+                                    rf" = {_sp_latex(_veq.rhs)}"
+                                )
+                                with st.spinner(f"Simplifying equation ({_vi})…"):
+                                    _vs = simplify_equation_steps(_veq)
+                                if not _vs:
+                                    st.caption("Already in simplified form.")
+                                else:
+                                    st.caption("LHS − RHS after each stage:")
+                                    for _vl, _ve in _vs:
+                                        _iz = _ve == 0
+                                        st.markdown(
+                                            f"&nbsp;&nbsp;**{_vl}**: "
+                                            f"$\\displaystyle {_sp_latex(_ve)}$"
+                                            + (" ✓ zero" if _iz else "")
+                                        )
+
+                        # ── 5. Bianchi redundancy ─────────────────────────────
+                        st.markdown("**4 · Bianchi redundancy**")
+                        _bianchi = st.session_state.get("bianchi")
+                        _n_eqs   = len(st.session_state["field_eqs"])
+                        if _bianchi is not None:
+                            _b_all_zero = all(c == 0 for c in _bianchi)
+                            _n_b = len(_bianchi)
+                            if _b_all_zero:
+                                st.success(
+                                    f"Bianchi identity verified (∇_λ G^λ_ν = 0 for all "
+                                    f"{_n_b} coordinates). Among the {_n_eqs} surviving "
+                                    f"equations, at most {max(0, _n_eqs - _n_b)} are truly "
+                                    "independent."
+                                )
+                            else:
+                                st.warning(
+                                    "Bianchi identity has non-zero residuals — "
+                                    "enable Simplify results and recompute."
+                                )
+                        else:
+                            st.info(
+                                "Bianchi identity not yet checked. "
+                                "Use the **Verify ∇_λ G^λ_ν = 0** button in the "
+                                "Einstein tensor expander above, then return here."
+                            )
+                    else:
+                        display_equations(st.session_state["field_eqs"])
 
                     st.divider()
                     st.subheader("Apply constraints")
@@ -1347,6 +1486,11 @@ if _st_obj is not None:
         T_str=st.session_state.get("T_str", "0"),
         signature=st.session_state.get("signature", "-+++"),
         applied_symmetries=st.session_state.get("_applied_symmetries", []),
+        field_eq_verbose=st.session_state.get("_chk_efe_verbose", False),
+        field_eq_labels=st.session_state.get("field_eq_labels"),
+        field_eq_dropped=st.session_state.get("field_eq_dropped"),
+        rhs_tensor=st.session_state.get("rhs_tensor"),
+        bianchi_results=st.session_state.get("bianchi"),
     )
     _full_py = build_python_code(
         coords=_st_obj.coords,

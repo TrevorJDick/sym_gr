@@ -207,6 +207,39 @@ def display_scalar(expr, name: str) -> None:
     st.latex(rf"{name} = {latex(expr)}")
 
 
+def display_equations_labeled(
+    eqs: list,
+    labels: list,
+    coords: list,
+    start_index: int = 1,
+) -> None:
+    """
+    Render a numbered list of equations as LaTeX with (μ, ν) index labels.
+
+    Parameters
+    ----------
+    eqs : list of sympy.Eq
+    labels : list of (int, int)
+        The (mu, nu) tensor-index pair for each equation.
+    coords : list
+        Coordinate symbols.
+    start_index : int
+        Number of the first equation.
+    """
+    if not eqs:
+        st.success("All equations are satisfied (0 remaining).")
+        return
+
+    for i, (eq, (mu, nu)) in enumerate(zip(eqs, labels), start=start_index):
+        mu_label = latex(coords[mu])
+        nu_label = latex(coords[nu])
+        lhs_str = latex(eq.lhs)
+        rhs_str = latex(eq.rhs)
+        st.latex(
+            rf"({i})\;[\mu={mu_label},\,\nu={nu_label}]\quad {lhs_str} = {rhs_str}"
+        )
+
+
 def display_equations(eqs: list, start_index: int = 1) -> None:
     """
     Render a numbered list of equations as LaTeX.
