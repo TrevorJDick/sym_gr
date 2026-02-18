@@ -27,6 +27,7 @@ from sympy import Expr, Matrix
 from sympy.tensor.array import ImmutableDenseNDimArray
 
 from .tensors import (
+    compute_bianchi_check,
     compute_christoffel,
     compute_einstein,
     compute_metric_inverse,
@@ -209,6 +210,34 @@ class Spacetime:
             )
         result = self._einstein
         return simplify_array(result) if simplified else result
+
+    def bianchi_check(self, simplified: bool = False) -> list:
+        """
+        Verify the contracted Bianchi identity ∇_λ G^λ_ν = 0.
+
+        Uses the cached (unsimplified) Einstein and Christoffel tensors.
+        cancel() is applied to each component inside compute_bianchi_check.
+
+        Parameters
+        ----------
+        simplified : bool
+            If True, additionally apply sympy.simplify to each component.
+
+        Returns
+        -------
+        list of sympy.Expr, length n
+            Covariant divergence of G^λ_ν for each ν.  Should all be zero.
+        """
+        result = compute_bianchi_check(
+            self.coords,
+            self.einstein(),
+            self.christoffel(),
+            self.metric_inverse(),
+        )
+        if simplified:
+            from sympy import simplify as sp_simplify
+            result = [sp_simplify(c) for c in result]
+        return result
 
     # ------------------------------------------------------------------
     # Display helpers

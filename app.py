@@ -167,6 +167,7 @@ def _init_state() -> None:
         "ricci": None,
         "ricci_scalar": None,
         "einstein": None,
+        "bianchi": None,
         "field_eqs": None,
         "constrained_eqs": None,
         "rhs_tensor": None,
@@ -206,6 +207,7 @@ TENSOR_KEYS = [
     "ricci",
     "ricci_scalar",
     "einstein",
+    "bianchi",
     "field_eqs",
     "constrained_eqs",
     "rhs_tensor",
@@ -808,6 +810,26 @@ def _need_compute_msg():
     st.info("Press **Compute** above to run the calculation.")
 
 
+# ── Conventions reference ────────────────────────────────────────────────────
+with st.expander("Conventions & index notation", expanded=False):
+    st.caption("Carroll (2004) conventions throughout, signature (−, +, +, +).")
+    st.latex(
+        r"\Gamma^\sigma{}_{\mu\nu} = \tfrac{1}{2}\,g^{\sigma\rho}"
+        r"\!\left(\partial_\mu g_{\nu\rho} + \partial_\nu g_{\mu\rho} - \partial_\rho g_{\mu\nu}\right)"
+    )
+    st.latex(
+        r"R^\rho{}_{\sigma\mu\nu} = \partial_\mu\Gamma^\rho_{\nu\sigma}"
+        r" - \partial_\nu\Gamma^\rho_{\mu\sigma}"
+        r" + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma}"
+        r" - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}"
+    )
+    st.latex(
+        r"R_{\mu\nu} = R^\rho{}_{\mu\rho\nu}"
+        r"\qquad R = g^{\mu\nu}R_{\mu\nu}"
+        r"\qquad G_{\mu\nu} = R_{\mu\nu} - \tfrac{1}{2}R\,g_{\mu\nu}"
+    )
+
+
 # Track whether any tensor computed for the first time this render pass.
 # If so, we rerun at the end so the updated expanded= flags take effect.
 _did_compute = False
@@ -817,6 +839,11 @@ with st.expander(
     "Christoffel Symbols  Γ^σ_μν",
     expanded=st.session_state.get("_chri_expanded", False),
 ):
+    st.caption(
+        r"Connection coefficients of the metric. "
+        r"$\Gamma^\sigma{}_{\mu\nu} = 0$ in locally flat (normal) coordinates; "
+        r"non-zero here reflects coordinate curvature, not necessarily spacetime curvature."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -903,6 +930,11 @@ with st.expander(
     "Riemann Tensor  R^ρ_σμν",
     expanded=st.session_state.get("_riem_expanded", False),
 ):
+    st.caption(
+        r"Measures intrinsic spacetime curvature. "
+        r"$R^\rho{}_{\sigma\mu\nu} = 0$ everywhere iff the spacetime is flat. "
+        r"Only components with $\mu < \nu$ are shown (antisymmetry in last two indices)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -965,6 +997,11 @@ with st.expander(
     "Ricci Tensor  R_μν",
     expanded=st.session_state.get("_ricci_expanded", False),
 ):
+    st.caption(
+        r"$R_{\mu\nu} = R^\rho{}_{\mu\rho\nu}$ — contract Riemann on its 1st and 3rd indices. "
+        r"Symmetric: $R_{\mu\nu} = R_{\nu\mu}$. "
+        r"Vanishes in vacuum ($G_{\mu\nu} = 0$) only if $R_{\mu\nu} = 0$ (follows from the EFE with $\Lambda = 0$)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -993,6 +1030,10 @@ with st.expander(
     "Ricci Scalar  R",
     expanded=st.session_state.get("_rscalar_expanded", False),
 ):
+    st.caption(
+        r"$R = g^{\mu\nu} R_{\mu\nu}$ — full contraction of the Ricci tensor. "
+        r"Constant on maximally symmetric spaces (e.g. $R = 4\Lambda$ for de Sitter, $R = -12/L^2$ for AdS)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -1015,6 +1056,11 @@ with st.expander(
     "Einstein Tensor  G_μν",
     expanded=st.session_state.get("_ein_expanded", False),
 ):
+    st.caption(
+        r"$G_{\mu\nu} = R_{\mu\nu} - \tfrac{1}{2}R\,g_{\mu\nu}$ — the LHS of the Einstein field equations. "
+        r"Automatically satisfies $\nabla^\mu G_{\mu\nu} = 0$ (contracted Bianchi identity), "
+        r"which guarantees $\nabla^\mu T_{\mu\nu} = 0$ (stress-energy conservation)."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -1038,6 +1084,54 @@ with st.expander(
                 symmetry=True, show_zeros=chk_ein_zeros,
             )
 
+            st.divider()
+            st.markdown("**Contracted Bianchi identity**")
+            st.caption(
+                r"$\nabla_\lambda G^\lambda{}_\nu = 0$ is a mathematical identity "
+                r"satisfied by any Einstein tensor computed from a metric-compatible connection. "
+                r"Verifying it numerically confirms internal consistency of the computation."
+            )
+            bianchi_btn = st.button(
+                "Verify  ∇_λ G^λ_ν = 0",
+                key="_bianchi_btn",
+                help=(
+                    "Computes the covariant divergence of the mixed Einstein tensor G^λ_ν "
+                    "for each coordinate index ν. All n components should cancel to zero."
+                ),
+            )
+            if bianchi_btn or st.session_state.get("bianchi") is not None:
+                if bianchi_btn or st.session_state["bianchi"] is None:
+                    with st.spinner("Computing Bianchi identity check…"):
+                        try:
+                            st.session_state["bianchi"] = st_obj.bianchi_check(
+                                simplified=simplified
+                            )
+                        except Exception as e:
+                            st.error(f"Bianchi check failed: {e}")
+
+                if st.session_state["bianchi"] is not None:
+                    from sympy import latex as _bianchi_latex
+                    bianchi_res = st.session_state["bianchi"]
+                    all_zero = all(c == 0 for c in bianchi_res)
+                    if all_zero:
+                        st.success("✓ All components are identically zero — identity confirmed.")
+                    else:
+                        for _nu, _c in enumerate(bianchi_res):
+                            _nu_label = str(st_obj.coords[_nu])
+                            if _c == 0:
+                                st.markdown(
+                                    rf"$\nabla_\lambda G^\lambda{{}}_{{{_nu_label}}} = 0$ ✓"
+                                )
+                            else:
+                                st.latex(
+                                    rf"\nabla_\lambda G^\lambda{{}}_{{{_nu_label}}} = "
+                                    + _bianchi_latex(_c)
+                                )
+                        st.caption(
+                            "Non-zero residuals above may still vanish under stronger simplification. "
+                            "Enable **Simplify results** in the metric section and recompute."
+                        )
+
 # ---- Field equations -------------------------------------------------------
 
 def _efe_title() -> str:
@@ -1059,6 +1153,14 @@ with st.expander(
     _efe_title(),
     expanded=st.session_state.get("_efe_expanded", False),
 ):
+    st.caption(
+        "Independent non-trivial components of the Einstein field equations, "
+        "after removing duplicates (symmetry of $G_{\\mu\\nu}$) and identically zero equations. "
+        "The contracted Bianchi identity $\\nabla_\\lambda G^\\lambda{}_\\nu = 0$ "
+        "provides $n$ further constraints, reducing the 10 metric unknowns to at most 6 truly "
+        "independent equations — verify this with the button in the Einstein tensor expander above. "
+        "Enter substitution rules below to apply a known solution or equation of state and verify residuals."
+    )
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
