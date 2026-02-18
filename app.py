@@ -258,6 +258,12 @@ if st.session_state.pop("_reset_requested", False):
             or _wk.startswith("_sdel_")
         ):
             del st.session_state[_wk]
+    # If resetting within a preset, restore _preset_select so the sidebar
+    # preset-loading logic sees no change and doesn't re-apply or clear the
+    # carefully prepared preset state (steps, coords, EFE terms).
+    _rp = st.session_state.get("_last_applied_preset")
+    if _rp:
+        st.session_state["_preset_select"] = _rp
 
 # ---------------------------------------------------------------------------
 # Helper: wipe cached tensors
