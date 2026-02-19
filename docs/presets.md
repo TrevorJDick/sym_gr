@@ -46,9 +46,10 @@ zero-curvature limit of GR.
 **Coordinates:** $(t, x, y, z)$ — standard Cartesian.
 
 **Metric:**
-$$
+
+```math
 g_{\mu\nu} = \text{diag}(-1, 1, 1, 1)
-$$
+```
 
 **What to expect:**
 - All Christoffel symbols vanish (the coordinate basis is geodesic).
@@ -56,9 +57,28 @@ $$
 - Einstein tensor $G_{\mu\nu} = 0$.
 - Field equations are satisfied trivially: $0 = 0$.
 
+**How the metric is derived:**
+The Minkowski metric is not derived from an ansatz — it is the *definition* of flat
+spacetime in orthonormal Cartesian coordinates. The form $\text{diag}(-1,1,1,1)$ is
+the unique (up to signature convention) solution to $R^\rho{}_{\sigma\mu\nu} = 0$
+in coordinates where all metric components are constant. The negative sign on the
+time component follows from the mostly-plus signature choice.
+
 **Use case:**
 Sanity check. Also useful as a starting point to verify that the computation
 pipeline works before moving to a curved spacetime.
+
+**References:**
+- Minkowski, H. (1908). *Raum und Zeit.* Address to the 80th Assembly of German
+  Natural Scientists and Physicians, Cologne. Reprinted in Lorentz, Einstein,
+  Minkowski & Weyl (1952). *The Principle of Relativity.* Dover. — the original
+  four-dimensional spacetime formulation.
+- Einstein, A. (1905). *Zur Elektrodynamik bewegter Körper.* Ann. Phys. 322(10),
+  891–921. — special relativity, whose arena Minkowski space is.
+- Carroll §1 (Special Relativity and Flat Spacetime) for sign conventions and
+  the Minkowski metric in various coordinate systems.
+- MTW §6 for flat spacetime, the equivalence principle, and locally inertial
+  frames.
 
 ---
 
@@ -71,9 +91,10 @@ mass (a star, black hole, etc.). Named after Karl Schwarzschild (1916).
 **Coordinates:** $(t, r, \theta, \phi)$ — Schwarzschild (curvature) coordinates.
 
 **Metric ansatz:**
-$$
-g_{\mu\nu} = \text{diag}\!\bigl(-A(r),\; B(r),\; r^2,\; r^2 \sin^2\theta\bigr)
-$$
+
+```math
+g_{\mu\nu} = \text{diag}(-A(r),\; B(r),\; r^2,\; r^2 \sin^2\theta)
+```
 
 Here $A(r)$ and $B(r)$ are unknown functions of $r$ only — the preset does **not**
 assume the Schwarzschild solution; it lets you derive it.
@@ -85,8 +106,64 @@ assume the Schwarzschild solution; it lets you derive it.
   $A$, $B$, and their $r$-derivatives.
 - Solving those equations (with asymptotic flatness $A, B \to 1$ as $r \to \infty$)
   yields the **Schwarzschild solution**:
-  $$A(r) = 1 - \frac{2M}{r}, \qquad B(r) = \frac{1}{1 - 2M/r}$$
-  where $M$ is the mass (in geometric units).
+
+```math
+A(r) = 1 - \frac{2M}{r}, \qquad B(r) = \frac{1}{1 - 2M/r}
+```
+
+where $M$ is the mass (in geometric units).
+
+**How the ansatz is derived — step by step:**
+
+This preset loads a *general ansatz* and pre-populates five derivation steps,
+mirroring the textbook reduction from the most general metric to the Schwarzschild
+form. The steps are visible and editable in the **Ansatz steps** panel of the app.
+
+Start: a fully general symmetric 4×4 metric with 10 independent component symbols
+$g_{tt}, g_{tr}, g_{t\theta}, g_{t\phi}, g_{rr}, \ldots$
+
+**Step 1 — Static metric** (time-reversal symmetry $t \to -t$):
+A static spacetime is unchanged under time reversal. Because $dt$ is odd under
+$t \to -t$ while $dr, d\theta, d\phi$ are even, any cross term $g_{ti}\,dt\,dx^i$
+would change sign — violating the symmetry. Therefore:
+$$g_{tr} = g_{t\theta} = g_{t\phi} = 0$$
+This removes three off-diagonal components, leaving seven.
+
+**Step 2 — Spherical symmetry** (no radial-angular or angle-angle mixing):
+Spherical symmetry ($SO(3)$ acting on the angular coordinates) forbids any
+coupling between the $r$-direction and the angular directions, and between
+different angular directions. Therefore:
+$$g_{r\theta} = g_{r\phi} = g_{\theta\phi} = 0$$
+This leaves four diagonal components: $g_{tt}(r), g_{rr}(r), g_{\theta\theta}(r), g_{\phi\phi}(r,\theta)$.
+
+**Step 3 — SO(3) invariance** (angular block must be a round sphere):
+The restriction of the metric to a surface of constant $t$ and $r$ must be
+proportional to the round-sphere metric $d\theta^2 + \sin^2\theta\,d\phi^2$.
+Therefore:
+$$g_{\phi\phi} = \sin^2\theta \cdot g_{\theta\theta}$$
+This reduces the two free angular components to one: $g_{\theta\theta}(r)$.
+
+**Step 4 — Coordinate choice** (define $r$ as the areal radius):
+We are still free to relabel the radial coordinate. We choose $r$ so that the
+area of a $t = \text{const},\, r = \text{const}$ 2-sphere is $4\pi r^2$,
+which means:
+$$g_{\theta\theta} = r^2$$
+This is a gauge choice, not a physical assumption. It fixes the remaining
+angular component and leaves two free functions $g_{tt}(r)$ and $g_{rr}(r)$.
+
+**Step 5 — Rename free functions:**
+For clarity, introduce named functions:
+$$g_{tt} = -A(r), \qquad g_{rr} = B(r)$$
+
+**Result:**
+
+```math
+g_{\mu\nu} = \text{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
+```
+
+Solving the vacuum field equations $G_{\mu\nu} = 0$ for $A(r)$ and $B(r)$
+(with boundary conditions $A, B \to 1$ as $r \to \infty$) yields the
+Schwarzschild solution.
 
 **Applying constraints:**
 In the "Apply constraints" box, enter:
@@ -102,6 +179,20 @@ the residuals should reduce to $0 = 0$.
 - The computation can take 60–90 s for the full pipeline because SymPy must
   differentiate $A(r)$ and $B(r)$ symbolically through the 4D metric.
 
+**References:**
+- Schwarzschild, K. (1916). *Über das Gravitationsfeld eines Massenpunktes nach
+  der Einsteinschen Theorie.* Sitzungsber. Preuss. Akad. Wiss., 189–196.
+  [arXiv:physics/9905030](https://arxiv.org/abs/physics/9905030) — the original
+  derivation of the exterior vacuum metric.
+- Birkhoff, G.D. (1923). *Relativity and Modern Physics.* Harvard University
+  Press. — Birkhoff's theorem: every spherically-symmetric vacuum solution is
+  static and isometric to Schwarzschild, guaranteeing the uniqueness of the
+  result this preset derives.
+- Carroll §7.2 — standard pedagogical derivation from the spherically-symmetric
+  ansatz to the Schwarzschild metric.
+- MTW §31 — full component-by-component derivation and detailed physical
+  interpretation.
+
 ---
 
 ## Preset: de Sitter
@@ -114,9 +205,10 @@ cosmology and the accelerating expansion of the present universe.
 **Coordinates:** $(t, r, \theta, \phi)$ — static patch coordinates.
 
 **Metric:**
-$$
+
+```math
 g_{\mu\nu} = \text{diag}\!\left(-1,\; \left(1 - \frac{\Lambda r^2}{3}\right)^{-1},\; r^2,\; r^2 \sin^2\theta\right)
-$$
+```
 
 Here $\Lambda$ is the cosmological constant (a symbol; set a numerical value in
 Section 1 if desired).
@@ -129,7 +221,35 @@ Section 1 if desired).
 - Field equations: $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$, all satisfied identically.
 - The Ricci scalar is constant: $R = 4\Lambda$.
 
+**How the metric is derived:**
+De Sitter space is spherically symmetric and static (in the static patch), so
+its metric must have the same symmetries as Schwarzschild. The starting point
+is the general spherically-symmetric static ansatz (the same as the Schwarzschild
+ansatz after all five reduction steps):
+
+```math
+g_{\mu\nu} = \text{diag}(-f(r),\; h(r)^{-1},\; r^2,\; r^2\sin^2\theta)
+```
+
+Imposing the vacuum EFE with cosmological constant, $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$,
+forces $f(r) = h(r) = 1 - \Lambda r^2/3$. This can be verified in the app by
+loading the Schwarzschild ansatz, enabling $\Lambda$, generating the field
+equations, and solving.
+
+The preset loads the *solved* metric directly. To derive it from scratch,
+use the Schwarzschild ansatz preset and set $\Lambda$ to a non-zero symbol.
+
 **EFE setup:** Λ is set to `Lambda` (a symbol). κ remains `8*pi*G`. T_μν = 0.
+
+**References:**
+- de Sitter, W. (1917). *On the relativity of inertia. Remarks concerning
+  Einstein's latest hypothesis.* Proc. Acad. Sci. Amsterdam 19, 1217–1225. —
+  the original de Sitter solution.
+- Carroll §8.1 — the de Sitter solution, static-patch coordinates, and its
+  relationship to the cosmological constant.
+- Hawking, S.W. & Ellis, G.F.R. (1973). *The Large Scale Structure of
+  Space-Time.* Cambridge University Press. §5.2 for the maximally-symmetric
+  vacuum solutions (de Sitter and Anti-de Sitter).
 
 ---
 
@@ -142,15 +262,26 @@ coordinate effect.
 **Coordinates:** $(t, r, \theta, \phi)$.
 
 **Metric:**
-$$
+
+```math
 g_{\mu\nu} = \text{diag}(-1,\; 1,\; r^2,\; r^2 \sin^2\theta)
-$$
+```
 
 **What to expect:**
 - Non-trivial Christoffel symbols even though spacetime is flat — these arise
   from the curvature of the coordinate lines, not from gravitational curvature.
 - Riemann tensor = 0 (the space is flat).
 - Einstein tensor = 0.
+
+**How the metric is derived:**
+This is Minkowski space written in spherical coordinates — no new physics, just
+a coordinate transformation. Starting from Cartesian coordinates $(t, x, y, z)$
+with metric $\text{diag}(-1,1,1,1)$, apply:
+
+$$x = r\sin\theta\cos\phi, \quad y = r\sin\theta\sin\phi, \quad z = r\cos\theta$$
+
+The spatial line element $dx^2 + dy^2 + dz^2$ becomes $dr^2 + r^2 d\theta^2 + r^2\sin^2\theta\,d\phi^2$,
+giving the metric directly. No symmetry reduction or equation solving is involved.
 
 **Use case:**
 - Demonstrates the distinction between **coordinate singularities** (the metric
@@ -160,6 +291,15 @@ $$
 - The non-zero Christoffel symbols here are the familiar **connection
   coefficients** of spherical coordinates that appear in vector calculus
   (e.g., in the expression for the Laplacian in spherical coordinates).
+
+**References:**
+- No original paper: this is Minkowski space expressed in spherical coordinates —
+  a coordinate transformation, not a new geometry.
+- Carroll §1.4 — the Minkowski metric in curvilinear coordinates, and the
+  distinction between coordinate and physical singularities.
+- MTW §6 — flat spacetime in spherical coordinates; how non-zero Christoffel
+  symbols arise from coordinate curvature without any physical gravitational
+  field.
 
 ---
 
@@ -174,15 +314,18 @@ to high precision.
 fixed $(r, \theta, \phi)$; the expansion is encoded in the scale factor $a(t)$.
 
 **Metric:**
-$$
-g_{\mu\nu} = \text{diag}\!\bigl(-1,\; a(t)^2,\; a(t)^2 r^2,\; a(t)^2 r^2 \sin^2\theta\bigr)
-$$
+
+```math
+g_{\mu\nu} = \text{diag}(-1,\; a(t)^2,\; a(t)^2 r^2,\; a(t)^2 r^2 \sin^2\theta)
+```
 
 **Stress-energy tensor:**
 The preset fills T_μν with a **perfect fluid** at rest in comoving coordinates:
-$$
-T_{\mu\nu} = \text{diag}\!\bigl(\rho,\; p\,a(t)^2,\; p\,a(t)^2 r^2,\; p\,a(t)^2 r^2\sin^2\theta\bigr)
-$$
+
+```math
+T_{\mu\nu} = \text{diag}(\rho,\; p\,a(t)^2,\; p\,a(t)^2 r^2,\; p\,a(t)^2 r^2\sin^2\theta)
+```
+
 where $\rho$ is the energy density and $p$ is the pressure (both SymPy symbols —
 assign values or an equation of state via custom constraints).
 
@@ -190,14 +333,49 @@ assign values or an equation of state via custom constraints).
 - Non-trivial Christoffel symbols involving $\dot{a}(t) \equiv da/dt$.
 - The field equations $G_{\mu\nu} = \kappa T_{\mu\nu}$ yield (after simplification)
   two independent equations — the **Friedmann equations**:
-  $$H^2 = \left(\frac{\dot{a}}{a}\right)^2 = \frac{\kappa \rho}{3}$$
-  $$\frac{\ddot{a}}{a} = -\frac{\kappa}{6}(\rho + 3p)$$
+
+```math
+H^2 = \left(\frac{\dot{a}}{a}\right)^2 = \frac{\kappa \rho}{3}
+```
+
+```math
+\frac{\ddot{a}}{a} = -\frac{\kappa}{6}(\rho + 3p)
+```
+
 - The Riemann tensor is non-trivial but highly symmetric (spatial isotropy).
 
 **Applying constraints:**
 - For a **matter-dominated** universe: `p = 0` → $a(t) \propto t^{2/3}$.
 - For a **radiation-dominated** universe: `p = rho/3` → $a(t) \propto t^{1/2}$.
 - For **de Sitter expansion**: set `T_str = 0` and `lambda_str = Lambda` → $a(t) \propto e^{Ht}$.
+
+**How the metric is derived:**
+The FLRW metric follows from the **cosmological principle**: the universe is
+spatially homogeneous (the same everywhere) and isotropic (the same in every
+direction). These two symmetry requirements severely constrain the metric.
+
+1. **Homogeneity and isotropy** require that the spatial sections at each
+   moment of cosmic time $t$ are *maximally symmetric* 3D spaces. There are
+   only three possibilities, labelled by the curvature parameter $k$:
+   - $k = +1$: positively curved (3-sphere)
+   - $k = 0$: flat (Euclidean)
+   - $k = -1$: negatively curved (hyperbolic)
+
+2. **Time evolution** is unrestricted by symmetry, so the overall scale of the
+   spatial section is allowed to vary with $t$. This is captured by the scale
+   factor $a(t)$.
+
+3. **The $k = 0$ flat case** gives the spatial metric $a(t)^2(dr^2 + r^2 d\theta^2 + r^2\sin^2\theta\, d\phi^2)$.
+   Combined with the proper-time term $-dt^2$ (in comoving gauge, $g_{ti} = 0$):
+
+```math
+g_{\mu\nu} = \text{diag}(-1,\; a(t)^2,\; a(t)^2 r^2,\; a(t)^2 r^2 \sin^2\theta)
+```
+
+4. **The stress-energy tensor** for a perfect fluid at rest in comoving
+   coordinates takes the diagonal form $T_{\mu\nu} = \text{diag}(\rho, p\,g_{rr}, p\,g_{\theta\theta}, p\,g_{\phi\phi})$,
+   where $\rho$ is energy density and $p$ is pressure. Both are treated as
+   free symbols until an equation of state is specified.
 
 **Computation time:** Similar to Schwarzschild (~60–90 s) because $a(t)$ is an
 undefined function and all derivatives must be computed symbolically.
@@ -229,9 +407,11 @@ sits at $z = 0$ and the AdS "interior" at $z \to \infty$.
 **Coordinates:** $(t, z, x, y)$ — Poincaré patch of AdS₄.
 
 **Metric:**
-$$
+
+```math
 g_{\mu\nu} = \frac{L^2}{z^2}\,\text{diag}(-1,\; 1,\; 1,\; 1)
-$$
+```
+
 where $L$ is the **AdS radius** (a free parameter; larger $L$ = weaker curvature).
 
 **EFE setup:** $\Lambda = -3/L^2$ (negative, as required for AdS).
@@ -252,6 +432,29 @@ where $L$ is the **AdS radius** (a free parameter; larger $L$ = weaker curvature
 | Spatial sections | positively curved or flat | negatively curved |
 | Horizon | yes (at $r = \sqrt{3/\Lambda}$) | no |
 | Relevant to | inflationary cosmology | AdS/CFT, holography |
+
+**How the metric is derived:**
+Anti-de Sitter space can be described in several coordinate patches. The Poincaré
+patch used here is derived by requiring:
+
+1. **Constant negative curvature:** the metric must satisfy $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$
+   with $\Lambda = -3/L^2 < 0$, and the Ricci scalar must be constant: $R = -12/L^2$.
+
+2. **Translational symmetry in $t$, $x$, $y$:** the metric is independent of
+   these three coordinates, but *not* of the holographic direction $z$.
+
+3. **Conformal flatness:** the metric is proportional to the Minkowski metric
+   $\eta_{\mu\nu}$ with a $z$-dependent conformal factor. The ansatz is:
+
+```math
+g_{\mu\nu} = \frac{L^2}{z^2}\,\text{diag}(-1,\; 1,\; 1,\; 1)
+```
+
+   Substituting into the EFE with $\Lambda = -3/L^2$ confirms this is an exact
+   solution — you can verify this in the app by loading the preset and clicking Compute.
+
+The Poincaré patch only covers half of the full AdS manifold. The boundary of
+the patch at $z = 0$ is where the dual CFT lives in AdS/CFT.
 
 **Computation time:** Fast (~5–10 s). The metric is conformally flat so all components
 are rational functions of $z$ only — no unknown functions, no angular complexity.
@@ -289,14 +492,15 @@ These are the natural generalization of Schwarzschild coordinates to the rotatin
 **Metric:**
 
 Define $\Sigma \equiv r^2 + a^2\cos^2\theta$ and $\Delta \equiv r^2 - 2Mr + a^2$. Then:
-$$
+
+```math
 g_{\mu\nu} = \begin{pmatrix}
   -(1 - 2Mr/\Sigma) & 0 & 0 & -2Mar\sin^2\theta/\Sigma \\
   0 & \Sigma/\Delta & 0 & 0 \\
   0 & 0 & \Sigma & 0 \\
   -2Mar\sin^2\theta/\Sigma & 0 & 0 & (r^2+a^2+2Ma^2r\sin^2\theta/\Sigma)\sin^2\theta
 \end{pmatrix}
-$$
+```
 
 **Key features:**
 - **Off-diagonal:** $g_{t\phi} = g_{\phi t} \neq 0$ — the metric mixes time and azimuthal
@@ -319,6 +523,34 @@ $$
 - Use Christoffel step-by-step mode cautiously — there are 40 non-zero symbols.
 - **Recommended workflow:** Load the preset, compute Christoffel symbols only,
   inspect a few components, then proceed to Riemann/Einstein when patience allows.
+
+**How the metric is derived:**
+The Kerr metric is the unique stationary, axially-symmetric vacuum solution of
+the Einstein equations. The derivation starts from a **general stationary
+axisymmetric ansatz** — a metric that:
+
+1. Is **stationary**: independent of $t$ (admits a timelike Killing vector $\partial_t$).
+2. Is **axially symmetric**: independent of $\phi$ (admits a spacelike Killing
+   vector $\partial_\phi$).
+3. Allows **frame dragging**: an off-diagonal $g_{t\phi} \neq 0$ term, which
+   couples the time and azimuthal directions. This is the key structural
+   difference from Schwarzschild.
+
+The metric components are therefore functions of $(r, \theta)$ only. Kerr's
+original 1963 derivation exploited the **Petrov classification** — the vacuum
+equations with the algebraically-special (Petrov type D) constraint reduce to
+a tractable system. Boyer and Lindquist (1967) then introduced the coordinate
+choice $\Delta = r^2 - 2Mr + a^2$ that simplifies the $g_{rr}$ and $g_{\theta\theta}$
+components, eliminating the off-diagonal $g_{r\theta}$ term.
+
+Defining $\Sigma \equiv r^2 + a^2\cos^2\theta$ and $\Delta \equiv r^2 - 2Mr + a^2$,
+the resulting Boyer-Lindquist metric is an exact vacuum solution — not an ansatz
+to be solved, but the closed-form result of Kerr's derivation. The preset loads
+it directly.
+
+**Note:** The full derivation of the Kerr metric from first principles is one
+of the hardest calculations in classical GR. The app loads the known solution
+and verifies $G_{\mu\nu} = 0$ numerically via SymPy.
 
 **Applying constraints:**
 To specialize to Schwarzschild: enter `a = 0` in the Constraints box after
