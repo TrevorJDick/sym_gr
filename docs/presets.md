@@ -204,40 +204,89 @@ cosmology and the accelerating expansion of the present universe.
 
 **Coordinates:** $(t, r, \theta, \phi)$ — static patch coordinates.
 
-**Metric:**
+**Metric ansatz** (after symmetry reduction, before solving the EFE):
 
 ```math
-g_{\mu\nu} = \text{diag}\!\left(-1,\; \left(1 - \frac{\Lambda r^2}{3}\right)^{-1},\; r^2,\; r^2 \sin^2\theta\right)
+g_{\mu\nu} = \text{diag}(-f(r),\; h(r),\; r^2,\; r^2 \sin^2\theta)
+```
+
+**Solved metric** (apply $f(r) = 1 - \Lambda r^2/3$, $h(r) = (1 - \Lambda r^2/3)^{-1}$ as constraints after generating field equations):
+
+```math
+g_{\mu\nu} = \text{diag}\!\left(-1 + \frac{\Lambda r^2}{3},\; \left(1 - \frac{\Lambda r^2}{3}\right)^{-1},\; r^2,\; r^2 \sin^2\theta\right)
 ```
 
 Here $\Lambda$ is the cosmological constant (a symbol; set a numerical value in
 Section 1 if desired).
 
 **What to expect:**
+- Applying all five ansatz steps gives $\text{diag}(-f(r), h(r), r^2, r^2\sin^2\theta)$.
+- Generating field equations with $\Lambda \neq 0$ yields equations for $f(r)$ and $h(r)$.
+- Applying constraints `f(r) = 1 - Lambda*r**2/3` and `h(r) = (1 - Lambda*r**2/3)**(-1)`
+  reduces all field equations to $0 = 0$, confirming the solution.
 - The metric has a coordinate singularity at $r = \sqrt{3/\Lambda}$, the
   **de Sitter horizon** (analogous to the Schwarzschild horizon).
-- The Einstein tensor satisfies $G_{\mu\nu} = -\Lambda g_{\mu\nu}$ — this is
-  the defining property of the de Sitter solution.
-- Field equations: $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$, all satisfied identically.
 - The Ricci scalar is constant: $R = 4\Lambda$.
 
-**How the metric is derived:**
-De Sitter space is spherically symmetric and static (in the static patch), so
-its metric must have the same symmetries as Schwarzschild. The starting point
-is the general spherically-symmetric static ansatz (the same as the Schwarzschild
-ansatz after all five reduction steps):
+**How the ansatz is derived — step by step:**
+
+The de Sitter static patch is both static and spherically symmetric, so it
+undergoes the same five-step symmetry reduction as the Schwarzschild ansatz.
+The steps are identical; only the function names and the non-zero $\Lambda$
+distinguish the two derivations.
+
+Start: a fully general symmetric 4×4 metric with 10 independent component
+symbols $g_{tt}, g_{tr}, g_{t\theta}, g_{t\phi}, g_{rr}, \ldots$
+
+**Step 1 — Static metric** (time-reversal symmetry $t \to -t$):
+$$g_{tr} = g_{t\theta} = g_{t\phi} = 0$$
+Same reasoning as Schwarzschild: cross terms $g_{ti}\,dt\,dx^i$ would break
+time-reversal symmetry. Removes three off-diagonal components.
+
+**Step 2 — Spherical symmetry** (no radial-angular or angle-angle mixing):
+$$g_{r\theta} = g_{r\phi} = g_{\theta\phi} = 0$$
+$SO(3)$ symmetry forbids coupling between the radial and angular sectors.
+Leaves four diagonal components.
+
+**Step 3 — SO(3) invariance** (angular block must be a round sphere):
+$$g_{\phi\phi} = \sin^2\theta \cdot g_{\theta\theta}$$
+The angular part of the metric at fixed $(t, r)$ must be proportional to
+the round-sphere line element.
+
+**Step 4 — Coordinate choice** (define $r$ as the areal radius):
+$$g_{\theta\theta} = r^2$$
+This is a gauge choice that defines $r$ so that the area of a 2-sphere at
+radius $r$ is exactly $4\pi r^2$. Leaves two free functions $g_{tt}(r)$
+and $g_{rr}(r)$.
+
+**Step 5 — Rename free functions:**
+$$g_{tt} = -f(r), \qquad g_{rr} = h(r)$$
+
+**Result:**
 
 ```math
-g_{\mu\nu} = \text{diag}(-f(r),\; h(r)^{-1},\; r^2,\; r^2\sin^2\theta)
+g_{\mu\nu} = \text{diag}(-f(r),\; h(r),\; r^2,\; r^2\sin^2\theta)
 ```
 
-Imposing the vacuum EFE with cosmological constant, $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$,
-forces $f(r) = h(r) = 1 - \Lambda r^2/3$. This can be verified in the app by
-loading the Schwarzschild ansatz, enabling $\Lambda$, generating the field
-equations, and solving.
+**Solving the field equations:**
+With $\Lambda \neq 0$ and $T_{\mu\nu} = 0$, the EFE $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$
+yields a coupled ODE system for $f(r)$ and $h(r)$. The unique solution satisfying
+$f, h \to 1$ as $r \to 0$ (local flatness near the origin) is:
 
-The preset loads the *solved* metric directly. To derive it from scratch,
-use the Schwarzschild ansatz preset and set $\Lambda$ to a non-zero symbol.
+```math
+f(r) = 1 - \frac{\Lambda r^2}{3}, \qquad h(r) = \left(1 - \frac{\Lambda r^2}{3}\right)^{-1}
+```
+
+Note that $f \cdot h = 1$ — a structural property shared with Schwarzschild
+($A \cdot B = 1$ there too). This is a general consequence of spherical symmetry
+plus the contracted Bianchi identity.
+
+Enter these as constraints in the "Apply constraints" box after generating field
+equations to verify the residuals reduce to $0 = 0$:
+```
+f(r) = 1 - Lambda*r**2/3
+h(r) = (1 - Lambda*r**2/3)**(-1)
+```
 
 **EFE setup:** Λ is set to `Lambda` (a symbol). κ remains `8*pi*G`. T_μν = 0.
 

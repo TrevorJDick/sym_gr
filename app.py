@@ -102,7 +102,34 @@ PRESETS: dict[str, dict] = {
         "coord_preset": "Spherical 4D",
         "signature": "-+++",
         "coords": "t, r, theta, phi",
-        "metric": "diag(-1, (1 - Lambda*r**2/3)**(-1), r**2, r**2*sin(theta)**2)",
+        "metric": None,  # set from general ansatz via steps
+        "ansatz_steps": [
+            {
+                "description": "Static metric — t→-t symmetry kills time-space cross terms",
+                "step_type": "constraint",
+                "content": "g_t_r = 0\ng_t_theta = 0\ng_t_phi = 0",
+            },
+            {
+                "description": "Spherical symmetry — no r-angle or angle-angle mixing",
+                "step_type": "constraint",
+                "content": "g_r_theta = 0\ng_r_phi = 0\ng_theta_phi = 0",
+            },
+            {
+                "description": "SO(3) invariance — angular block must be a round sphere",
+                "step_type": "constraint",
+                "content": "g_phi_phi = sin(theta)**2 * g_theta_theta",
+            },
+            {
+                "description": "Coordinate choice — define r so the angular area element is 4πr²",
+                "step_type": "constraint",
+                "content": "g_theta_theta = r**2",
+            },
+            {
+                "description": "Rename the two remaining free functions",
+                "step_type": "constraint",
+                "content": "g_t_t = -f(r)\ng_r_r = h(r)",
+            },
+        ],
     },
     "Flat polar": {
         "lambda_str": "0",
