@@ -174,7 +174,22 @@ The Schwarzschild preset's 5 steps mirror the textbook derivation:
 
 #### Ansatz step log — remaining work
 
-- **More step-based presets**: de Sitter, FLRW, and others could also get derivation steps rather than loading the final metric directly. Minkowski and Kerr are probably fine as direct metrics.
+- **Remaining step-based presets**: Schwarzschild and de Sitter are now step-based.
+  FLRW and Anti-de Sitter still load final metrics directly and should be converted.
+  Minkowski (no steps needed — it's a definition) and Kerr (derivation too complex
+  for constraint steps) are fine as direct metrics. Flat polar is also fine as direct
+  (it's just a coordinate transform). Pattern to follow:
+  1. Change `"metric"` key to `None` and add `"ansatz_steps"` list in `app.py`
+  2. Update `docs/presets.md`: split "Metric" into "Metric ansatz" + "Solved metric",
+     document each step, add constraint substitutions to verify the solution
+  - **FLRW**: steps are homogeneity (off-diagonals = 0) → isotropy (spatial block
+    proportional to flat metric) → introduce scale factor `a(t)` → perfect fluid
+    stress-energy. Steps differ from Schwarzschild because the free function is
+    time-dependent, not radial.
+  - **Anti-de Sitter**: same five reduction steps as Schwarzschild/de Sitter
+    (static + spherically symmetric in the global patch), or note that the Poincaré
+    patch metric follows directly from conformal flatness + translational symmetry —
+    document which approach is more useful pedagogically.
 - **Step reordering**: currently steps apply in list order; drag-and-drop or up/down buttons would allow reordering without delete-and-re-add.
 - **Spherical symmetry as a proper condition**: currently modelled as two separate constraint steps (no mixing + round sphere). A single named step that enforces both `g_φφ = sin²θ·g_θθ` and zeros all angle-mixing terms would be more pedagogical.
 - **Rename / introduce functions**: after reducing to free symbols (e.g. `g_t_t`), a step that renames them to named functions (e.g. `g_t_t → -A(r)`) could be a dedicated step type with better UX than a raw constraint.
