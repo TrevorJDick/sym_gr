@@ -272,32 +272,64 @@ _components_html(
         var par = window.parent;
         var doc = par.document;
 
-        // Streamlit's actual scrollable element is stMain, not window.
-        function getScrollEl() {
-            return doc.querySelector('[data-testid="stMain"]') || doc.body;
+        // Dynamically find the scrollable container — Streamlit's layout varies
+        // by version. Walk up from the content block to find the first ancestor
+        // whose computed overflowY is auto or scroll.
+        var _cachedEl = null;
+        function findScrollEl() {
+            if (_cachedEl && doc.contains(_cachedEl)) return _cachedEl;
+            // Walk up from the main block container
+            var anchor = doc.querySelector('[data-testid="stMainBlockContainer"]')
+                      || doc.querySelector('[data-testid="stMain"]');
+            if (anchor) {
+                var node = anchor.parentElement;
+                while (node && node !== doc.documentElement) {
+                    var oy = par.getComputedStyle(node).overflowY;
+                    if (oy === 'auto' || oy === 'scroll') {
+                        _cachedEl = node;
+                        return node;
+                    }
+                    node = node.parentElement;
+                }
+            }
+            // Fallback: explicit known testids
+            var fb = doc.querySelector('[data-testid="stAppViewContainer"]')
+                  || doc.querySelector('[data-testid="stMain"]');
+            _cachedEl = fb;
+            return fb;
         }
 
-        // Restore saved position with multiple attempts to outlast Streamlit's own reset.
+        function getScroll() {
+            var el = findScrollEl();
+            return el ? el.scrollTop : (par.scrollY || 0);
+        }
+
+        function setScroll(v) {
+            var el = findScrollEl();
+            if (el) el.scrollTop = v;
+            else par.scrollTo(0, v);
+        }
+
+        // Restore: poll every 100 ms for 1.5 s — outlasts Streamlit's own reset
+        // regardless of when in the rerun cycle it fires.
         var saved = par.sessionStorage.getItem(KEY);
         if (saved !== null) {
             par.sessionStorage.removeItem(KEY);
             var target = parseInt(saved, 10);
-            [50, 200, 450, 800].forEach(function(ms) {
-                setTimeout(function() {
-                    var el = getScrollEl();
-                    if (el) el.scrollTop = target;
-                }, ms);
-            });
+            var n = 0;
+            var iv = setInterval(function() {
+                setScroll(target);
+                if (++n >= 15) clearInterval(iv);
+            }, 100);
         }
 
-        // Save scroll position on every button click.
+        // Save scroll on every button click.
         if (par._symgr_click_handler) {
             doc.removeEventListener('click', par._symgr_click_handler, true);
         }
         par._symgr_click_handler = function(e) {
             if (e.target.closest('button')) {
-                var el = getScrollEl();
-                par.sessionStorage.setItem(KEY, el ? el.scrollTop.toString() : '0');
+                par.sessionStorage.setItem(KEY, getScroll().toString());
             }
         };
         doc.addEventListener('click', par._symgr_click_handler, true);
