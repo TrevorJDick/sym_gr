@@ -230,6 +230,8 @@ def _init_state() -> None:
         "rhs_tensor": None,
         # EFE config snapshot used for field-eq title
         "efe_config": None,
+        # Field-equation constraint step log
+        "_constraint_steps": [],
         # Signature change info message (None = no message)
         "_sig_info": None,
         # Pending metric update (written by buttons below the text area)
@@ -283,6 +285,11 @@ if st.session_state.pop("_reset_requested", False):
             or _wk.startswith("_sapply_")
             or _wk.startswith("_sundo_")
             or _wk.startswith("_sdel_")
+            or _wk.startswith("_cdesc_")
+            or _wk.startswith("_ccontent_")
+            or _wk.startswith("_capply_")
+            or _wk.startswith("_cundo_")
+            or _wk.startswith("_cdel_")
         ):
             del st.session_state[_wk]
     # If resetting within a preset, restore _preset_select so the sidebar
@@ -329,6 +336,9 @@ def _wipe_tensors() -> None:
         st.session_state[k] = None
     for k in _EXPANDED_FLAGS:
         st.session_state[k] = False
+    # Constraint steps refer to the field equations — clear them too so stale
+    # steps don't survive a metric/coordinate change.
+    st.session_state["_constraint_steps"] = []
 
 
 # ---------------------------------------------------------------------------
@@ -1343,6 +1353,9 @@ with st.expander(
                         st.session_state["field_eq_dropped"] = _feq_result.dropped
                         st.session_state["efe_config"] = (lam, T)
                         st.session_state["_efe_expanded"] = True
+                        # New field equations — old constraint steps are stale.
+                        st.session_state["_constraint_steps"] = []
+                        st.session_state["constrained_eqs"] = None
                         _did_compute = True
                     except Exception as e:
                         st.error(f"Field equation generation failed: {e}")
@@ -1483,98 +1496,18 @@ with st.expander(
                         display_equations(st.session_state["field_eqs"])
 
                     st.divider()
-                    st.subheader("Apply constraints")
-
-                    constraint_text = st.text_area(
-                        "Constraints (one per line, e.g.  A(r) = 1 - 2*M/r)",
-                        height=100,
-                        key="_constraint_text",
-                        placeholder="A(r) = 1 - 2*M/r\nB(r) = 1/(1 - 2*M/r)",
+                    st.subheader("Constraint steps")
+                    st.caption(
+                        "Apply substitution rules one step at a time to reduce the field equations. "
+                        "Each step's output becomes the input to the next step. "
+                        "Undo rolls back one step at a time."
                     )
-
-                    apply_btn = st.button(
-                        "Apply Constraints", key="_apply_constraints_btn"
+                    from ui.constraint_steps import render_constraint_steps
+                    render_constraint_steps(
+                        field_eqs=st.session_state["field_eqs"],
+                        coord_syms=st_obj.coords,
+                        simplified=simplified,
                     )
-
-                    if apply_btn:
-                        lines = [
-                            ln.strip()
-                            for ln in constraint_text.splitlines()
-                            if ln.strip()
-                        ]
-                        parsed_constraints = []
-                        any_error = False
-                        for ln in lines:
-                            try:
-                                parsed_constraints.append(
-                                    parse_constraint(ln, st_obj.coords)
-                                )
-                            except ValueError as e:
-                                st.error(f"Parse error on `{ln}`: {e}")
-                                any_error = True
-
-                        if not any_error and parsed_constraints:
-                            from core.constraints import apply_constraints
-                            with st.spinner("Applying constraints…"):
-                                try:
-                                    st.session_state["constrained_eqs"] = apply_constraints(
-                                        st.session_state["field_eqs"],
-                                        parsed_constraints,
-                                        auto_simplify=simplified,
-                                    )
-                                    st.session_state["_efe_expanded"] = True
-                                    _did_compute = True
-                                except Exception as e:
-                                    st.error(f"Constraint application failed: {e}")
-                        elif not lines:
-                            st.warning("No constraints entered.")
-
-                    if st.session_state["constrained_eqs"] is not None:
-                        n_field = len(st.session_state["field_eqs"])
-                        st.subheader("Reduced equations")
-                        _simp_steps_cb = st.checkbox(
-                            "Show simplification stages",
-                            key="_chk_simp_steps",
-                            help=(
-                                "For each remaining equation, run cancel → trigsimp → simplify "
-                                "and show which steps change the expression. Slow on large systems."
-                            ),
-                        )
-                        if _simp_steps_cb:
-                            from core.constraints import simplify_equation_steps
-                            from sympy import latex as _sp_latex
-                            for _idx, _eq in enumerate(
-                                st.session_state["constrained_eqs"],
-                                start=n_field + 1,
-                            ):
-                                st.markdown(f"**Equation {_idx}:**")
-                                st.latex(
-                                    rf"({_idx})\quad "
-                                    + _sp_latex(_eq.lhs)
-                                    + " = "
-                                    + _sp_latex(_eq.rhs)
-                                )
-                                with st.spinner(f"Simplifying equation {_idx}…"):
-                                    _s_steps = simplify_equation_steps(_eq)
-                                if not _s_steps:
-                                    st.success("Already zero — satisfied identically.")
-                                else:
-                                    st.caption("LHS − RHS after each stage:")
-                                    for _step_label, _step_expr in _s_steps:
-                                        _step_latex = _sp_latex(_step_expr)
-                                        _is_zero = _step_expr == 0
-                                        _icon = "✓ zero" if _is_zero else ""
-                                        st.markdown(
-                                            f"&nbsp;&nbsp;**{_step_label}**: "
-                                            f"$\\displaystyle {_step_latex}$ {_icon}"
-                                        )
-                                    if _s_steps and _s_steps[-1][1] != 0:
-                                        st.warning("Not reduced to zero by available simplifications.")
-                        else:
-                            display_equations(
-                                st.session_state["constrained_eqs"],
-                                start_index=n_field + 1,
-                            )
 
 # Trigger a rerun whenever a tensor computed for the first time this pass,
 # so the updated expanded= flags take effect immediately.
