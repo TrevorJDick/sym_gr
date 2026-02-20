@@ -6,6 +6,8 @@ A Python toolkit for symbolic tensor computation in General Relativity. Built fo
 
 **License:** MIT
 
+> **Note:** This repository was built with the assistance of AI tooling, but is being as carefully and transparently guided by human knowledge and creative thinking.
+
 ---
 
 ## Table of Contents
