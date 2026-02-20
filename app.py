@@ -256,91 +256,6 @@ def _init_state() -> None:
 _init_state()
 
 # ---------------------------------------------------------------------------
-# Scroll-position preservation
-# Streamlit reruns scroll to the top; this injects a tiny JS shim that saves
-# the scroll position before each button click and restores it afterwards.
-# Uses streamlit.components.v1.html (an iframe) so that <script> tags execute.
-# ---------------------------------------------------------------------------
-from streamlit.components.v1 import html as _components_html
-
-_components_html(
-    """
-    <style>body { margin: 0; overflow: hidden; }</style>
-    <script>
-    (function() {
-        var KEY = 'sym_gr_scroll';
-        var par = window.parent;
-        var doc = par.document;
-
-        // Dynamically find the scrollable container — Streamlit's layout varies
-        // by version. Walk up from the content block to find the first ancestor
-        // whose computed overflowY is auto or scroll.
-        var _cachedEl = null;
-        function findScrollEl() {
-            if (_cachedEl && doc.contains(_cachedEl)) return _cachedEl;
-            // Walk up from the main block container
-            var anchor = doc.querySelector('[data-testid="stMainBlockContainer"]')
-                      || doc.querySelector('[data-testid="stMain"]');
-            if (anchor) {
-                var node = anchor.parentElement;
-                while (node && node !== doc.documentElement) {
-                    var oy = par.getComputedStyle(node).overflowY;
-                    if (oy === 'auto' || oy === 'scroll') {
-                        _cachedEl = node;
-                        return node;
-                    }
-                    node = node.parentElement;
-                }
-            }
-            // Fallback: explicit known testids
-            var fb = doc.querySelector('[data-testid="stAppViewContainer"]')
-                  || doc.querySelector('[data-testid="stMain"]');
-            _cachedEl = fb;
-            return fb;
-        }
-
-        function getScroll() {
-            var el = findScrollEl();
-            return el ? el.scrollTop : (par.scrollY || 0);
-        }
-
-        function setScroll(v) {
-            var el = findScrollEl();
-            if (el) el.scrollTop = v;
-            else par.scrollTo(0, v);
-        }
-
-        // Restore: poll every 100 ms for 1.5 s — outlasts Streamlit's own reset
-        // regardless of when in the rerun cycle it fires.
-        var saved = par.sessionStorage.getItem(KEY);
-        if (saved !== null) {
-            par.sessionStorage.removeItem(KEY);
-            var target = parseInt(saved, 10);
-            var n = 0;
-            var iv = setInterval(function() {
-                setScroll(target);
-                if (++n >= 15) clearInterval(iv);
-            }, 100);
-        }
-
-        // Save scroll on every button click.
-        if (par._symgr_click_handler) {
-            doc.removeEventListener('click', par._symgr_click_handler, true);
-        }
-        par._symgr_click_handler = function(e) {
-            if (e.target.closest('button')) {
-                par.sessionStorage.setItem(KEY, getScroll().toString());
-            }
-        };
-        doc.addEventListener('click', par._symgr_click_handler, true);
-    })();
-    </script>
-    """,
-    height=1,
-    scrolling=False,
-)
-
-# ---------------------------------------------------------------------------
 # Handle pending widget reset BEFORE any widget is instantiated.
 # _reset_to_defaults() sets _reset_requested=True then calls st.rerun().
 # On the subsequent rerun this block runs before any sidebar/main widgets
@@ -638,6 +553,11 @@ with st.sidebar:
         help="Scale the text size of the main content area.",
     )
     st.session_state["_font_pct"] = font_pct
+    st.caption(
+        "**Note:** every button click triggers a full page rerun — "
+        "the page will scroll back to the top each time. "
+        "This is a Streamlit limitation."
+    )
     # Comprehensive text scaling.
     # Setting html font-size only affects rem-based elements; Streamlit uses a
     # mix of rem and hardcoded px, so we also explicitly reset the major text
