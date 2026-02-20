@@ -69,6 +69,17 @@ pip install -e ".[ui]"
 pip install -e ".[all]"
 ```
 
+### Dependencies
+
+| Package | Role | Install group |
+|---------|------|---------------|
+| `sympy >= 1.13` | All symbolic computation | core |
+| `numpy >= 1.26` | Numerical array support | core |
+| `streamlit >= 1.35` | Interactive UI | `.[ui]` |
+| `scipy >= 1.13` | Optional ODE solving | `.[numerical]` |
+| `matplotlib >= 3.9` | Optional plotting | `.[plotting]` |
+| `pytest >= 8.0` | Tests | `.[dev]` |
+
 ---
 
 ## The Streamlit app
