@@ -534,8 +534,8 @@ with st.sidebar:
     st.subheader("Display")
     font_pct = st.slider(
         "Text size",
-        min_value=90,
-        max_value=150,
+        min_value=75,
+        max_value=200,
         value=st.session_state.get("_font_pct", 100),
         step=5,
         format="%d%%",
@@ -543,9 +543,67 @@ with st.sidebar:
         help="Scale the text size of the main content area.",
     )
     st.session_state["_font_pct"] = font_pct
-    # Scale html root so all rem-based Streamlit text scales with it
+    # Comprehensive text scaling.
+    # Setting html font-size only affects rem-based elements; Streamlit uses a
+    # mix of rem and hardcoded px, so we also explicitly reset the major text
+    # element groups to rem units so they all inherit from the root scale.
     st.markdown(
-        f"<style>html {{ font-size: {font_pct}%; }}</style>",
+        f"""<style>
+        /* Root — all rem-based elements scale with this */
+        html {{ font-size: {font_pct}% !important; }}
+
+        /* Body text and inline elements */
+        p, li, a, td, th {{ font-size: 1rem; }}
+
+        /* Headings — keep size hierarchy but scale with root */
+        h1 {{ font-size: 2.5rem; }}
+        h2 {{ font-size: 2.0rem; }}
+        h3 {{ font-size: 1.5rem; }}
+        h4 {{ font-size: 1.25rem; }}
+
+        /* Markdown containers */
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] li {{ font-size: 1rem; }}
+
+        /* Caption / small text */
+        [data-testid="stCaptionContainer"] p,
+        .stCaption p, small {{ font-size: 0.85rem; }}
+
+        /* Widget labels */
+        [data-testid="stWidgetLabel"] p {{ font-size: 0.95rem; }}
+
+        /* Buttons */
+        .stButton > button,
+        .stDownloadButton > button {{ font-size: 1rem; }}
+
+        /* Text inputs and text areas */
+        .stTextInput input,
+        .stTextArea textarea,
+        .stNumberInput input {{ font-size: 1rem; }}
+
+        /* Selectbox displayed value */
+        [data-baseweb="select"] span {{ font-size: 1rem; }}
+
+        /* Expander header text */
+        [data-testid="stExpander"] summary p {{ font-size: 1rem; }}
+
+        /* Tab button text */
+        [data-baseweb="tab"] {{ font-size: 1rem; }}
+
+        /* Alert / info / warning / error boxes */
+        .stAlert p {{ font-size: 1rem; }}
+
+        /* Sidebar text (keep proportional but don't over-scale controls) */
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{ font-size: 0.95rem; }}
+
+        /* KaTeX (st.latex): anchor the container to rem so KaTeX's internal
+           em-based sizing inherits the scaled root correctly */
+        [data-testid="stLatex"] {{ font-size: 1rem; }}
+        .stLatex {{ font-size: 1rem; }}
+        .katex {{ font-size: 1.21em; }}
+        </style>""",
         unsafe_allow_html=True,
     )
 
