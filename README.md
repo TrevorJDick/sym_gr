@@ -406,3 +406,9 @@ Default signature: (−, +, +, +). This is not enforced — set the metric signs
 ## References
 
 See [`docs/references.md`](docs/references.md) for an annotated bibliography and [`docs/presets.md`](docs/presets.md) for derivation notes and physics references for each built-in preset.
+
+---
+
+## Acknowledgements
+
+This project builds on SymPy's tensor and differential geometry modules, developed by the SymPy community. See the [SymPy paper](https://peerj.com/articles/cs-103/) for citation details.
