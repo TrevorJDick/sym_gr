@@ -256,6 +256,41 @@ def _init_state() -> None:
 _init_state()
 
 # ---------------------------------------------------------------------------
+# Scroll-position preservation
+# Streamlit reruns scroll to the top; this injects a tiny JS shim that saves
+# the scroll position before each button click and restores it afterwards.
+# Uses streamlit.components.v1.html (an iframe) so that <script> tags execute.
+# ---------------------------------------------------------------------------
+from streamlit.components.v1 import html as _components_html
+
+_components_html(
+    """
+    <script>
+    (function() {
+        var KEY = 'sym_gr_scroll';
+        var par = window.parent;
+        var saved = par.sessionStorage.getItem(KEY);
+        if (saved !== null) {
+            par.sessionStorage.removeItem(KEY);
+            setTimeout(function() { par.scrollTo(0, parseInt(saved, 10)); }, 200);
+        }
+        if (par._symgr_click_handler) {
+            par.document.removeEventListener('click', par._symgr_click_handler, true);
+        }
+        par._symgr_click_handler = function(e) {
+            if (e.target.closest('button')) {
+                par.sessionStorage.setItem(KEY, par.scrollY.toString());
+            }
+        };
+        par.document.addEventListener('click', par._symgr_click_handler, true);
+    })();
+    </script>
+    """,
+    height=0,
+    scrolling=False,
+)
+
+# ---------------------------------------------------------------------------
 # Handle pending widget reset BEFORE any widget is instantiated.
 # _reset_to_defaults() sets _reset_requested=True then calls st.rerun().
 # On the subsequent rerun this block runs before any sidebar/main widgets
