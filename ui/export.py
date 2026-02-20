@@ -411,6 +411,51 @@ $G_{{\mu\nu}} = R_{{\mu\nu}} - \tfrac{{1}}{{2}} R\, g_{{\mu\nu}}$.
     return "\n".join(lines) + "\n"
 
 
+def _sec_constraint_steps(constraint_steps: list, coords: list) -> str:
+    """
+    LaTeX section documenting the field-equation constraint steps.
+
+    Each applied step's substitution rules are parsed through SymPy so they
+    render as proper math rather than plain text.
+    """
+    applied = [s for s in constraint_steps if isinstance(s, dict) and s.get("applied")]
+    if not applied:
+        return ""
+
+    lines = [r"\section*{Constraint Steps Applied to Field Equations}", ""]
+
+    for i, step in enumerate(applied, 1):
+        desc = step.get("description", "").strip()
+        content = step.get("content", "").strip()
+        title = desc if desc else f"Step {i}"
+        lines.append(rf"\subsection*{{Step {i}: {title}}}")
+        lines.append("")
+
+        if content:
+            lines.append(r"Substitution rules:")
+            lines.append(r"\begin{align*}")
+            for rule_line in content.splitlines():
+                rule_line = rule_line.strip()
+                if "=" not in rule_line:
+                    continue
+                result = _constraint_line_to_latex(rule_line, coords)
+                if result:
+                    lhs_l, rhs_l = result
+                    lines.append(rf"  {lhs_l} &= {rhs_l} \\")
+            lines.append(r"\end{align*}")
+
+        eqs_after = step.get("eqs_after")
+        if eqs_after is not None:
+            n = len(eqs_after)
+            lines.append(
+                rf"After this step: \textbf{{{n}}} equation{'s' if n != 1 else ''} remaining."
+            )
+
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
 def _sec_constrained_equations(constrained_eqs: list, field_eq_count: int) -> str:
     """
     Render the reduced equations after constraint substitution.
@@ -760,6 +805,7 @@ def build_full_latex(
     einstein=None,
     field_eqs=None,
     constrained_eqs=None,
+    constraint_steps: list | None = None,
     lambda_str: str = "0",
     kappa_str: str = "8*pi*G",
     T_str: str = "0",
@@ -821,6 +867,8 @@ def build_full_latex(
             ))
         else:
             parts.append(_sec_field_equations(field_eqs, lambda_str, kappa_str, T_str))
+        if constraint_steps:
+            parts.append(_sec_constraint_steps(constraint_steps, list(coords)))
         if constrained_eqs is not None:
             parts.append(_sec_constrained_equations(constrained_eqs, len(field_eqs)))
         parts.append(_sec_next_steps(m, field_eqs))
