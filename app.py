@@ -265,28 +265,46 @@ from streamlit.components.v1 import html as _components_html
 
 _components_html(
     """
+    <style>body { margin: 0; overflow: hidden; }</style>
     <script>
     (function() {
         var KEY = 'sym_gr_scroll';
         var par = window.parent;
+        var doc = par.document;
+
+        // Streamlit's actual scrollable element is stMain, not window.
+        function getScrollEl() {
+            return doc.querySelector('[data-testid="stMain"]') || doc.body;
+        }
+
+        // Restore saved position with multiple attempts to outlast Streamlit's own reset.
         var saved = par.sessionStorage.getItem(KEY);
         if (saved !== null) {
             par.sessionStorage.removeItem(KEY);
-            setTimeout(function() { par.scrollTo(0, parseInt(saved, 10)); }, 200);
+            var target = parseInt(saved, 10);
+            [50, 200, 450, 800].forEach(function(ms) {
+                setTimeout(function() {
+                    var el = getScrollEl();
+                    if (el) el.scrollTop = target;
+                }, ms);
+            });
         }
+
+        // Save scroll position on every button click.
         if (par._symgr_click_handler) {
-            par.document.removeEventListener('click', par._symgr_click_handler, true);
+            doc.removeEventListener('click', par._symgr_click_handler, true);
         }
         par._symgr_click_handler = function(e) {
             if (e.target.closest('button')) {
-                par.sessionStorage.setItem(KEY, par.scrollY.toString());
+                var el = getScrollEl();
+                par.sessionStorage.setItem(KEY, el ? el.scrollTop.toString() : '0');
             }
         };
-        par.document.addEventListener('click', par._symgr_click_handler, true);
+        doc.addEventListener('click', par._symgr_click_handler, true);
     })();
     </script>
     """,
-    height=0,
+    height=1,
     scrolling=False,
 )
 
