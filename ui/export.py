@@ -664,6 +664,40 @@ To obtain the explicit metric:
 # Symmetry reduction narrative section
 # ---------------------------------------------------------------------------
 
+def _constraint_line_to_latex(line: str, coords: list) -> tuple[str, str] | None:
+    """
+    Parse one 'lhs = rhs' constraint line and return (lhs_latex, rhs_latex).
+
+    Uses SymPy's parser so raw strings like ``g_t_theta`` and
+    ``sin(theta)**2 * g_theta_theta`` are converted to proper LaTeX.
+    Falls back to the raw strings if parsing fails.
+    """
+    if "=" not in line:
+        return None
+    lhs_str, rhs_str = line.split("=", 1)
+    lhs_str, rhs_str = lhs_str.strip(), rhs_str.strip()
+    if not lhs_str:
+        return None
+    try:
+        from sympy.parsing.sympy_parser import parse_expr
+        from sympy import Function
+
+        # Seed local dict with the actual coord symbols so e.g. theta → Symbol("theta")
+        # and therefore latex(…) renders it as \theta correctly.
+        local: dict = {str(c): c for c in coords}
+
+        # Auto-declare any function calls found in either side (e.g. A(r), B(r))
+        for fn in re.findall(r'\b([A-Za-z_]\w*)\s*\(', lhs_str + " " + rhs_str):
+            if fn not in local:
+                local[fn] = Function(fn)
+
+        lhs_expr = parse_expr(lhs_str, local_dict=local)
+        rhs_expr = parse_expr(rhs_str, local_dict=local)
+        return latex(lhs_expr), latex(rhs_expr)
+    except Exception:
+        return lhs_str, rhs_str
+
+
 def _sec_symmetry_reductions(applied_symmetries: list, coords: list) -> str:
     """
     LaTeX section documenting the ansatz derivation steps.
@@ -696,9 +730,12 @@ def _sec_symmetry_reductions(applied_symmetries: list, coords: list) -> str:
             lines.append(r"\begin{align*}")
             for rule_line in content.splitlines():
                 rule_line = rule_line.strip()
-                if "=" in rule_line:
-                    lhs, rhs = rule_line.split("=", 1)
-                    lines.append(rf"  {lhs.strip()} &= {rhs.strip()} \\")
+                if "=" not in rule_line:
+                    continue
+                result = _constraint_line_to_latex(rule_line, coords)
+                if result:
+                    lhs_l, rhs_l = result
+                    lines.append(rf"  {lhs_l} &= {rhs_l} \\")
             lines.append(r"\end{align*}")
         else:
             lines.append(r"Metric was edited directly at this step.")
