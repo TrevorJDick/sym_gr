@@ -1537,6 +1537,7 @@ if _st_obj is not None:
         einstein=st.session_state.get("einstein"),
         field_eqs=st.session_state.get("field_eqs"),
         constrained_eqs=st.session_state.get("constrained_eqs"),
+        constraint_steps=st.session_state.get("_constraint_steps", []),
         lambda_str=st.session_state.get("lambda_str", "0"),
         kappa_str=st.session_state.get("kappa_str", "8*pi*G"),
         T_str=st.session_state.get("T_str", "0"),
