@@ -34,8 +34,41 @@ def _coord_tex(coords: list, i: int) -> str:
     return f"{{{tex}}}" if "\\" in tex else tex
 
 
+def _chri_lhs(coords: list, sigma: int, mu: int, nu: int) -> str:
+    """
+    LaTeX LHS for a Christoffel component in step-by-step overviews.
+
+    Off-diagonal (μ ≠ ν): ``Γ^σ_μν = Γ^σ_νμ`` to show lower-index symmetry.
+    """
+    sig = _coord_tex(coords, sigma)
+    m   = _coord_tex(coords, mu)
+    nv  = _coord_tex(coords, nu)
+    base = rf"\Gamma^{{{sig}}}_{{{m}{nv}}}"
+    if mu == nu:
+        return base
+    sym = rf"\Gamma^{{{sig}}}_{{{nv}{m}}}"
+    return rf"{base} = {sym}"
+
+
+def _riem_lhs(coords: list, rho: int, sigma: int, mu: int, nu: int) -> str:
+    """
+    LaTeX LHS for a Riemann component in step-by-step overviews.
+
+    Off-diagonal (μ ≠ ν): ``R^ρ_σμν = -R^ρ_σνμ`` to show antisymmetry.
+    """
+    r  = _coord_tex(coords, rho)
+    s  = _coord_tex(coords, sigma)
+    m  = _coord_tex(coords, mu)
+    nv = _coord_tex(coords, nu)
+    base = rf"R^{{{r}}}_{{{s}{m}{nv}}}"
+    if mu == nu:
+        return base
+    anti = rf"R^{{{r}}}_{{{s}{nv}{m}}}"
+    return rf"{base} = -{anti}"
+
+
 def _chri_label(coords, sigma, mu, nu, value) -> str:
-    """Plain-text label for a Christoffel component (selectbox / overview)."""
+    """Plain-text label for a Christoffel component (selectbox)."""
     return (
         f"Γ^{coords[sigma]}_{{{coords[mu]}{coords[nu]}}}  =  "
         + ("0" if value == Integer(0) else str(value))
@@ -43,7 +76,7 @@ def _chri_label(coords, sigma, mu, nu, value) -> str:
 
 
 def _riem_label(coords, rho, sigma, mu, nu, value) -> str:
-    """Plain-text label for a Riemann component."""
+    """Plain-text label for a Riemann component (selectbox)."""
     return (
         f"R^{coords[rho]}_{{{coords[sigma]}{coords[mu]}{coords[nu]}}}  =  "
         + ("0" if value == Integer(0) else str(value))
@@ -128,12 +161,13 @@ def _render_christoffel_detail(
             "enable *Show vanishing ρ-terms* above to see them with reasons."
         )
 
+    conclusion_lhs = _chri_lhs(coords, sigma, mu, nu)
     st.divider()
     if step.is_zero:
-        st.latex(rf"\therefore\quad {lhs} = 0")
+        st.latex(rf"\therefore\quad {conclusion_lhs} = 0")
         st.caption("All ρ contributions vanish → component is zero.")
     else:
-        st.latex(rf"\therefore\quad {lhs} = {val_tex}")
+        st.latex(rf"\therefore\quad {conclusion_lhs} = {val_tex}")
 
 
 def display_christoffel_steps(
@@ -171,11 +205,11 @@ def display_christoffel_steps(
     # ── Compact overview
     st.markdown("**Overview:**")
     nonzero_lines = [
-        rf"\Gamma^{{{_coord_tex(coords,s)}}}_{{{_coord_tex(coords,m)}{_coord_tex(coords,v)}}} = {_tex(step.value)}"
+        rf"{_chri_lhs(coords, s, m, v)} = {_tex(step.value)}"
         for s, m, v, step in items if not step.is_zero
     ]
     zero_lines = [
-        rf"\Gamma^{{{_coord_tex(coords,s)}}}_{{{_coord_tex(coords,m)}{_coord_tex(coords,v)}}} = 0"
+        rf"{_chri_lhs(coords, s, m, v)} = 0"
         for s, m, v, step in items if step.is_zero
     ]
     if nonzero_lines:
@@ -248,8 +282,9 @@ def _render_riemann_detail(
     ]:
         st.latex(rf"{label_tex} = {_tex(val)}")
 
+    conclusion_lhs = _riem_lhs(coords, rho, sigma, mu, nu)
     st.divider()
-    st.latex(rf"\therefore\quad {lhs} = {_tex(step.value)}")
+    st.latex(rf"\therefore\quad {conclusion_lhs} = {_tex(step.value)}")
 
 
 def display_riemann_steps(
@@ -285,11 +320,11 @@ def display_riemann_steps(
     # ── Compact overview
     st.markdown("**Overview:**")
     nonzero_lines = [
-        rf"R^{{{_coord_tex(coords,r)}}}_{{{_coord_tex(coords,s)}{_coord_tex(coords,m)}{_coord_tex(coords,v)}}} = {_tex(step.value)}"
+        rf"{_riem_lhs(coords, r, s, m, v)} = {_tex(step.value)}"
         for r, s, m, v, step in items if not step.is_zero
     ]
     zero_lines = [
-        rf"R^{{{_coord_tex(coords,r)}}}_{{{_coord_tex(coords,s)}{_coord_tex(coords,m)}{_coord_tex(coords,v)}}} = 0"
+        rf"{_riem_lhs(coords, r, s, m, v)} = 0"
         for r, s, m, v, step in items if step.is_zero
     ]
     if nonzero_lines:

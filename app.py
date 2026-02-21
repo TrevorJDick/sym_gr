@@ -1135,7 +1135,8 @@ with st.expander(
     st.caption(
         r"Measures intrinsic spacetime curvature. "
         r"$R^\rho{}_{\sigma\mu\nu} = 0$ everywhere iff the spacetime is flat. "
-        r"Only components with $\mu < \nu$ are shown (antisymmetry in last two indices)."
+        r"Off-diagonal pairs are shown as $R^\rho{}_{\sigma\mu\nu} = -R^\rho{}_{\sigma\nu\mu}$ "
+        r"to make the last-index antisymmetry explicit."
     )
     st_obj = _get_spacetime()
     if st_obj is None:
