@@ -362,7 +362,7 @@ to high precision.
 **Coordinates:** $(t, r, \theta, \phi)$ — comoving coordinates. Galaxies sit at
 fixed $(r, \theta, \phi)$; the expansion is encoded in the scale factor $a(t)$.
 
-**Metric:**
+**Metric ansatz** (after all six steps are applied):
 
 ```math
 g_{\mu\nu} = \text{diag}(-1,\; a(t)^2,\; a(t)^2 r^2,\; a(t)^2 r^2 \sin^2\theta)
@@ -379,6 +379,7 @@ where $\rho$ is the energy density and $p$ is the pressure (both SymPy symbols �
 assign values or an equation of state via custom constraints).
 
 **What to expect:**
+- Applying all six ansatz steps yields $\text{diag}(-1, a(t)^2, a(t)^2 r^2, a(t)^2 r^2\sin^2\theta)$.
 - Non-trivial Christoffel symbols involving $\dot{a}(t) \equiv da/dt$.
 - The field equations $G_{\mu\nu} = \kappa T_{\mu\nu}$ yield (after simplification)
   two independent equations — the **Friedmann equations**:
@@ -398,33 +399,70 @@ H^2 = \left(\frac{\dot{a}}{a}\right)^2 = \frac{\kappa \rho}{3}
 - For a **radiation-dominated** universe: `p = rho/3` → $a(t) \propto t^{1/2}$.
 - For **de Sitter expansion**: set `T_str = 0` and `lambda_str = Lambda` → $a(t) \propto e^{Ht}$.
 
-**How the metric is derived:**
+**How the ansatz is derived — step by step:**
+
 The FLRW metric follows from the **cosmological principle**: the universe is
 spatially homogeneous (the same everywhere) and isotropic (the same in every
-direction). These two symmetry requirements severely constrain the metric.
+direction). This preset loads a *general ansatz* and pre-populates six derivation
+steps that reduce the 10-component general metric to the FLRW form.
 
-1. **Homogeneity and isotropy** require that the spatial sections at each
-   moment of cosmic time $t$ are *maximally symmetric* 3D spaces. There are
-   only three possibilities, labelled by the curvature parameter $k$:
-   - $k = +1$: positively curved (3-sphere)
-   - $k = 0$: flat (Euclidean)
-   - $k = -1$: negatively curved (hyperbolic)
+The spatial curvature parameter $k$ labels three possibilities:
+- $k = +1$: positively curved (3-sphere)
+- $k = 0$: flat (Euclidean) — this preset
+- $k = -1$: negatively curved (hyperbolic)
 
-2. **Time evolution** is unrestricted by symmetry, so the overall scale of the
-   spatial section is allowed to vary with $t$. This is captured by the scale
-   factor $a(t)$.
+Start: a fully general symmetric 4×4 metric with 10 independent component symbols
+$g_{tt}, g_{tr}, g_{t\theta}, g_{t\phi}, g_{rr}, \ldots$
 
-3. **The $k = 0$ flat case** gives the spatial metric $a(t)^2(dr^2 + r^2 d\theta^2 + r^2\sin^2\theta\, d\phi^2)$.
-   Combined with the proper-time term $-dt^2$ (in comoving gauge, $g_{ti} = 0$):
+**Step 1 — Comoving gauge** (homogeneity kills time-space cross terms):
+In comoving coordinates the 4-velocity of matter is $u^\mu = (1,0,0,0)$ — galaxies
+sit at fixed spatial coordinates and only move through time. Homogeneity requires
+the metric to look the same to all comoving observers, which forces the mixed
+time-space components to vanish:
+$$g_{tr} = g_{t\theta} = g_{t\phi} = 0$$
+This removes three off-diagonal components, leaving seven.
+
+**Step 2 — Spatial isotropy** (no off-diagonal spatial terms):
+Isotropy means no preferred spatial direction. Any off-diagonal spatial term like
+$g_{r\theta}$ would distinguish the $r$ and $\theta$ directions, breaking isotropy:
+$$g_{r\theta} = g_{r\phi} = g_{\theta\phi} = 0$$
+This leaves four diagonal components: $g_{tt}(t), g_{rr}(t,r), g_{\theta\theta}(t,r), g_{\phi\phi}(t,r,\theta)$.
+
+**Step 3 — SO(3) invariance** (angular block must be a round sphere):
+Isotropy in the angular directions requires that the metric restricted to a
+$t,r = \text{const}$ 2-surface is proportional to the round-sphere metric
+$d\theta^2 + \sin^2\theta\,d\phi^2$. Therefore:
+$$g_{\phi\phi} = \sin^2\theta \cdot g_{\theta\theta}$$
+This reduces to three free components: $g_{tt}(t), g_{rr}(t,r), g_{\theta\theta}(t,r)$.
+
+**Step 4 — Flat spatial slices** ($k=0$, angular metric is $r^2$ times radial metric):
+For flat ($k=0$) spatial sections the 3D spatial metric at any fixed $t$ must
+be conformally equivalent to flat Euclidean space. In spherical coordinates this
+means the angular metric at radius $r$ is $r^2$ times the radial metric:
+$$g_{\theta\theta} = r^2\, g_{rr}$$
+This eliminates one more free component, leaving $g_{tt}(t)$ and $g_{rr}(t)$.
+
+**Step 5 — Cosmic time gauge** (normalize the lapse to $-1$):
+We are free to reparametrize the time coordinate so that the 4D line element reads
+$ds^2 = -dt^2 + \ldots$. This is the *cosmic time* gauge. It fixes:
+$$g_{tt} = -1$$
+One free component remains: $g_{rr}(t)$.
+
+**Step 6 — Introduce the scale factor** $a(t)$:
+The single remaining unknown, the overall spatial scale, is named the *scale factor*
+$a(t)$:
+$$g_{rr} = a(t)^2$$
+
+**Result:**
 
 ```math
 g_{\mu\nu} = \text{diag}(-1,\; a(t)^2,\; a(t)^2 r^2,\; a(t)^2 r^2 \sin^2\theta)
 ```
 
-4. **The stress-energy tensor** for a perfect fluid at rest in comoving
-   coordinates takes the diagonal form $T_{\mu\nu} = \text{diag}(\rho, p\,g_{rr}, p\,g_{\theta\theta}, p\,g_{\phi\phi})$,
-   where $\rho$ is energy density and $p$ is pressure. Both are treated as
-   free symbols until an equation of state is specified.
+**The stress-energy tensor** for a perfect fluid at rest in comoving
+coordinates takes the diagonal form $T_{\mu\nu} = \text{diag}(\rho, p\,g_{rr}, p\,g_{\theta\theta}, p\,g_{\phi\phi})$,
+where $\rho$ is energy density and $p$ is pressure. Both are treated as
+free symbols until an equation of state is specified.
 
 **Computation time:** Similar to Schwarzschild (~60–90 s) because $a(t)$ is an
 undefined function and all derivatives must be computed symbolically.
@@ -455,23 +493,31 @@ sits at $z = 0$ and the AdS "interior" at $z \to \infty$.
 
 **Coordinates:** $(t, z, x, y)$ — Poincaré patch of AdS₄.
 
-**Metric:**
+**Metric ansatz** (after all five steps are applied):
+
+```math
+g_{\mu\nu} = \text{diag}(-f(z),\; f(z),\; f(z),\; f(z))
+```
+
+**Solved metric** (apply $f(z) = L^2/z^2$ as a constraint after generating field equations):
 
 ```math
 g_{\mu\nu} = \frac{L^2}{z^2}\,\text{diag}(-1,\; 1,\; 1,\; 1)
 ```
 
-where $L$ is the **AdS radius** (a free parameter; larger $L$ = weaker curvature).
-
-**EFE setup:** $\Lambda = -3/L^2$ (negative, as required for AdS).
+**EFE setup:** $\Lambda = -3/L^2$ (negative, as required for AdS). $L$ is the **AdS radius**
+(a free parameter; larger $L$ = weaker curvature).
 
 **What to expect:**
-- The metric is conformally flat: $g_{\mu\nu} = (L/z)^2\,\eta_{\mu\nu}$.
+- Applying all five ansatz steps yields $\text{diag}(-f(z), f(z), f(z), f(z))$.
+- The solved metric is conformally flat: $g_{\mu\nu} = (L/z)^2\,\eta_{\mu\nu}$.
 - Einstein tensor satisfies $G_{\mu\nu} = (3/L^2)\,g_{\mu\nu}$, so the field
   equation $G_{\mu\nu} + \Lambda\,g_{\mu\nu} = G_{\mu\nu} - (3/L^2)\,g_{\mu\nu} = 0$
   is satisfied identically.
 - Ricci scalar: $R = -12/L^2$ (constant, negative — the hallmark of AdS).
 - No coordinate singularity or horizon (unlike de Sitter).
+- **Computation time:** Fast once steps are applied (~5–10 s). All metric components
+  are rational functions of $z$ only — no unknown functions except $f(z)$.
 
 **Comparison with de Sitter:**
 
@@ -482,31 +528,76 @@ where $L$ is the **AdS radius** (a free parameter; larger $L$ = weaker curvature
 | Horizon | yes (at $r = \sqrt{3/\Lambda}$) | no |
 | Relevant to | inflationary cosmology | AdS/CFT, holography |
 
-**How the metric is derived:**
+**How the ansatz is derived — step by step:**
+
 Anti-de Sitter space can be described in several coordinate patches. The Poincaré
-patch used here is derived by requiring:
+patch used here is derived by requiring translational symmetry in the boundary
+directions $(t, x, y)$ and conformal flatness in $z$. This preset loads a
+*general ansatz* and pre-populates five derivation steps.
 
-1. **Constant negative curvature:** the metric must satisfy $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$
-   with $\Lambda = -3/L^2 < 0$, and the Ricci scalar must be constant: $R = -12/L^2$.
+Start: a fully general symmetric 4×4 metric with 10 independent component symbols
+$g_{tt}, g_{tz}, g_{tx}, g_{ty}, g_{zz}, \ldots$ in coordinates $(t, z, x, y)$.
 
-2. **Translational symmetry in $t$, $x$, $y$:** the metric is independent of
-   these three coordinates, but *not* of the holographic direction $z$.
+Here $z > 0$ is the **holographic (bulk) direction** — the conformal boundary of
+AdS sits at $z = 0$. The coordinates $t, x, y$ are the **boundary directions**
+in which the Poincaré patch has translational symmetry.
 
-3. **Conformal flatness:** the metric is proportional to the Minkowski metric
-   $\eta_{\mu\nu}$ with a $z$-dependent conformal factor. The ansatz is:
+**Step 1 — Boundary translational symmetry** (no bulk-direction time cross terms):
+The metric must be independent of $t$ (stationarity in the boundary sense).
+Time-reversal symmetry $t \to -t$ kills the mixed terms between the time direction
+and all spatial directions:
+$$g_{tz} = g_{tx} = g_{ty} = 0$$
+This removes three off-diagonal components.
+
+**Step 2 — No bulk-boundary spatial mixing:**
+Translational symmetry in $x$ and $y$ — the metric is independent of these
+coordinates — combined with the absence of any preferred boundary spatial direction
+forces all remaining off-diagonal terms to zero:
+$$g_{zx} = g_{zy} = g_{xy} = 0$$
+The metric is now diagonal: $g_{tt}(z),\, g_{zz}(z),\, g_{xx}(z),\, g_{yy}(z)$.
+
+**Step 3 — Boundary spatial isotropy** (SO(2) rotational symmetry in $x$-$y$ plane):
+The Poincaré patch metric is invariant under rotations in the boundary $(x,y)$
+plane. This requires the two boundary spatial components to be equal:
+$$g_{yy} = g_{xx}$$
+Three free components remain: $g_{tt}(z),\, g_{zz}(z),\, g_{xx}(z)$.
+
+**Step 4 — Conformal flatness** (bulk spatial component equals boundary spatial):
+The Poincaré patch metric is conformally flat — it is proportional to the
+Minkowski metric $\eta_{\mu\nu}$ with a $z$-dependent conformal factor. This
+means the bulk direction $z$ and the boundary spatial directions $x, y$ must
+enter symmetrically:
+$$g_{zz} = g_{xx}$$
+Two free components remain: $g_{tt}(z)$ and $g_{xx}(z)$.
+
+**Step 5 — Introduce the conformal factor** $f(z)$:
+The two remaining free functions are related by the Minkowski signature
+($g_{tt}$ is negative, spatial components positive). Name the single scale:
+$$g_{tt} = -f(z), \qquad g_{xx} = f(z)$$
+
+**Result:**
 
 ```math
-g_{\mu\nu} = \frac{L^2}{z^2}\,\text{diag}(-1,\; 1,\; 1,\; 1)
+g_{\mu\nu} = \text{diag}(-f(z),\; f(z),\; f(z),\; f(z))
 ```
 
-   Substituting into the EFE with $\Lambda = -3/L^2$ confirms this is an exact
-   solution — you can verify this in the app by loading the preset and clicking Compute.
+Solving the field equations $G_{\mu\nu} + \Lambda g_{\mu\nu} = 0$ with $\Lambda = -3/L^2$
+yields the unique solution with the correct boundary behaviour at $z \to 0$:
+
+```math
+f(z) = \frac{L^2}{z^2}
+```
+
+**Applying constraints:**
+After generating field equations, enter in the constraints box:
+```
+f(z) = L**2/z**2
+```
+The residuals should reduce to $0 = 0$.
 
 The Poincaré patch only covers half of the full AdS manifold. The boundary of
 the patch at $z = 0$ is where the dual CFT lives in AdS/CFT.
 
-**Computation time:** Fast (~5–10 s). The metric is conformally flat so all components
-are rational functions of $z$ only — no unknown functions, no angular complexity.
 
 **References:**
 - Maldacena, J. (1997). *The large N limit of superconformal field theories and

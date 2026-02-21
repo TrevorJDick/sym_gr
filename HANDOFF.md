@@ -42,10 +42,10 @@ The app is a linear five-section scroll:
 |--------|---|------|--------|-------|
 | Minkowski | 0 | 0 | Cartesian | Flat sanity check |
 | Schwarzschild ansatz | 0 | 0 | Spherical | **Step-based**: general ansatz + 5 pending steps |
-| de Sitter | Λ | 0 | Spherical | Cosmological constant metric |
+| de Sitter | Λ | 0 | Spherical | **Step-based**: same 5 steps as Schwarzschild |
 | Flat polar | 0 | 0 | Spherical | Flat space in spherical coords |
-| FLRW (flat) | 0 | diag(ρ, pa², pa²r², pa²r²sin²θ) | Spherical | Scale factor a(t); gives Friedmann eqs |
-| Anti-de Sitter | -3/L² | 0 | t,z,x,y | Poincaré patch; conformally flat |
+| FLRW (flat) | 0 | diag(ρ, pa², pa²r², pa²r²sin²θ) | Spherical | **Step-based**: 6 steps; cosmological principle → Friedmann eqs |
+| Anti-de Sitter | -3/L² | 0 | t,z,x,y | **Step-based**: 5 steps; Poincaré patch → f(z)=L²/z² |
 | Kerr | 0 | 0 | Spherical | Boyer-Lindquist; off-diagonal; very slow |
 
 ---
@@ -87,7 +87,7 @@ Each step is a dict stored in `st.session_state["_ansatz_steps"]`:
 
 #### Preset loading for step-based presets
 
-Presets with `"ansatz_steps"` key (currently only Schwarzschild):
+Presets with `"ansatz_steps"` key (Schwarzschild, de Sitter, FLRW, Anti-de Sitter):
 - Load the general ansatz instead of the final metric
 - Pre-populate `_ansatz_steps` with pending steps
 - Set `_use_general_ansatz = True` — resolved in Section 4 once `_coord_syms` is parsed
@@ -174,22 +174,11 @@ The Schwarzschild preset's 5 steps mirror the textbook derivation:
 
 #### Ansatz step log — remaining work
 
-- **Remaining step-based presets**: Schwarzschild and de Sitter are now step-based.
-  FLRW and Anti-de Sitter still load final metrics directly and should be converted.
-  Minkowski (no steps needed — it's a definition) and Kerr (derivation too complex
-  for constraint steps) are fine as direct metrics. Flat polar is also fine as direct
-  (it's just a coordinate transform). Pattern to follow:
-  1. Change `"metric"` key to `None` and add `"ansatz_steps"` list in `app.py`
-  2. Update `docs/presets.md`: split "Metric" into "Metric ansatz" + "Solved metric",
-     document each step, add constraint substitutions to verify the solution
-  - **FLRW**: steps are homogeneity (off-diagonals = 0) → isotropy (spatial block
-    proportional to flat metric) → introduce scale factor `a(t)` → perfect fluid
-    stress-energy. Steps differ from Schwarzschild because the free function is
-    time-dependent, not radial.
-  - **Anti-de Sitter**: same five reduction steps as Schwarzschild/de Sitter
-    (static + spherically symmetric in the global patch), or note that the Poincaré
-    patch metric follows directly from conformal flatness + translational symmetry —
-    document which approach is more useful pedagogically.
+- **Step-based presets**: All four main derivable presets are now step-based:
+  Schwarzschild (5 steps), de Sitter (5 steps), FLRW (6 steps), Anti-de Sitter
+  (5 steps). Minkowski (definition, no steps), Flat polar (coordinate transform,
+  no steps), and Kerr (derivation too complex for constraint steps) remain as
+  direct metrics.
 - **Step reordering**: currently steps apply in list order; drag-and-drop or up/down buttons would allow reordering without delete-and-re-add.
 - **Spherical symmetry as a proper condition**: currently modelled as two separate constraint steps (no mixing + round sphere). A single named step that enforces both `g_φφ = sin²θ·g_θθ` and zeros all angle-mixing terms would be more pedagogical.
 - **Rename / introduce functions**: after reducing to free symbols (e.g. `g_t_t`), a step that renames them to named functions (e.g. `g_t_t → -A(r)`) could be a dedicated step type with better UX than a raw constraint.

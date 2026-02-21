@@ -147,7 +147,39 @@ PRESETS: dict[str, dict] = {
         "coord_preset": "Spherical 4D",
         "signature": "-+++",
         "coords": "t, r, theta, phi",
-        "metric": "diag(-1, a(t)**2, a(t)**2*r**2, a(t)**2*r**2*sin(theta)**2)",
+        "metric": None,
+        "ansatz_steps": [
+            {
+                "description": "Comoving gauge — homogeneity kills time-space cross terms",
+                "step_type": "constraint",
+                "content": "g_t_r = 0\ng_t_theta = 0\ng_t_phi = 0",
+            },
+            {
+                "description": "Spatial isotropy — no off-diagonal spatial terms",
+                "step_type": "constraint",
+                "content": "g_r_theta = 0\ng_r_phi = 0\ng_theta_phi = 0",
+            },
+            {
+                "description": "SO(3) invariance — angular block must be a round sphere",
+                "step_type": "constraint",
+                "content": "g_phi_phi = sin(theta)**2 * g_theta_theta",
+            },
+            {
+                "description": "Flat spatial slices (k=0) — angular metric is r² times radial metric",
+                "step_type": "constraint",
+                "content": "g_theta_theta = r**2 * g_r_r",
+            },
+            {
+                "description": "Cosmic time gauge — normalize the lapse function to −1",
+                "step_type": "constraint",
+                "content": "g_t_t = -1",
+            },
+            {
+                "description": "Introduce the scale factor a(t)",
+                "step_type": "constraint",
+                "content": "g_r_r = a(t)**2",
+            },
+        ],
     },
     "Anti-de Sitter": {
         "lambda_str": "-3/L**2",
@@ -156,7 +188,34 @@ PRESETS: dict[str, dict] = {
         "coord_preset": "Cartesian 4D",
         "signature": "-+++",
         "coords": "t, z, x, y",
-        "metric": "diag(-L**2/z**2, L**2/z**2, L**2/z**2, L**2/z**2)",
+        "metric": None,
+        "ansatz_steps": [
+            {
+                "description": "Boundary translational symmetry — no bulk-direction time cross terms",
+                "step_type": "constraint",
+                "content": "g_t_z = 0\ng_t_x = 0\ng_t_y = 0",
+            },
+            {
+                "description": "No mixing between bulk (z) and boundary spatial directions",
+                "step_type": "constraint",
+                "content": "g_z_x = 0\ng_z_y = 0\ng_x_y = 0",
+            },
+            {
+                "description": "Boundary spatial isotropy — SO(2) symmetry in x-y plane",
+                "step_type": "constraint",
+                "content": "g_y_y = g_x_x",
+            },
+            {
+                "description": "Conformal flatness — bulk spatial component equals boundary spatial",
+                "step_type": "constraint",
+                "content": "g_z_z = g_x_x",
+            },
+            {
+                "description": "Introduce the conformal factor f(z)",
+                "step_type": "constraint",
+                "content": "g_t_t = -f(z)\ng_x_x = f(z)",
+            },
+        ],
     },
     "Kerr": {
         "lambda_str": "0",
