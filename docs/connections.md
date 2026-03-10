@@ -83,14 +83,31 @@ antisymmetric pairs of (μ, ν)).  Diagonal entries T^σ_μμ are always zero.
 
 **The contorsion tensor**
 
-The contorsion K^σ_μν is the correction to the LC connection needed to
-accommodate torsion while preserving metric compatibility:
+Before writing the formula, a word on notation — because the same symbol Γ
+is about to mean two different things, and the bookkeeping matters.
+
+In standard GR (Mode 1) the Christoffel symbols *are* the Levi-Civita
+connection.  There is only one connection and one Γ; no distinction is needed.
+
+In a torsion theory we introduce a *new*, more general affine connection that
+is no longer symmetric in its lower indices.  It is still called Γ^σ_μν in
+most of the literature — same letter, different object.  To tell the two apart
+we write Γ̊^σ_μν (Gamma with a ring) for the original metric-derived
+Levi-Civita connection, reserving the plain Γ^σ_μν for the new general one.
+This is purely bookkeeping: different authors use different conventions
+({^σ_μν}, ˜Γ, °Γ, etc.) and any of them is fine as long as the distinction is
+clear.
+
+With that in hand, the decomposition is simply:
 
 ```
-Γ^σ_μν = {^σ_μν} + K^σ_μν
+Γ^σ_μν = Γ̊^σ_μν + K^σ_μν
 ```
 
-where {^σ_μν} denotes the Levi-Civita Christoffel symbols.
+Read this as: the new general connection equals the old LC connection plus a
+correction term K^σ_μν called the contorsion.  The contorsion carries all the
+torsion information and is chosen specifically so that metric compatibility
+(∇_ρ g_μν = 0) is preserved despite the connection being non-symmetric.
 
 K is computed in three steps:
 
