@@ -166,11 +166,11 @@ matrices (one per upper index σ).
 Any full connection can be decomposed as:
 
 ```
-Γ^σ_μν = {^σ_μν} + K^σ_μν + L^σ_μν
+Γ^σ_μν = Γ̊^σ_μν + K^σ_μν + L^σ_μν
 ```
 
 where:
-- {^σ_μν} is the LC connection (metric-compatible, torsion-free part)
+- Γ̊^σ_μν is the LC connection (metric-compatible, torsion-free part)
 - K^σ_μν is the contorsion (metric-compatible torsion contribution)
 - L^σ_μν is the **disformation** (metric-incompatible part, also called the non-metricity contribution)
 
