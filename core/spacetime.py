@@ -51,6 +51,12 @@ class Spacetime:
         The covariant metric tensor g_μν as an n×n SymPy Matrix.
         Off-diagonal entries should be set to zero explicitly for
         diagonal metrics rather than left out.
+    connection : Connection or None
+        Optional affine connection.  When None (default) the standard
+        Levi-Civita connection is computed from the metric.  When supplied
+        its coefficients are used directly for all downstream tensors
+        (Riemann, Ricci, Einstein), allowing torsion and non-symmetric
+        connections to be explored.
 
     Notes
     -----
@@ -63,9 +69,11 @@ class Spacetime:
         self,
         coords: Sequence[Expr],
         metric: Matrix,
+        connection=None,
     ) -> None:
         self.coords = list(coords)
         self.metric = Matrix(metric) if not isinstance(metric, Matrix) else metric
+        self.connection = connection  # Connection | None
 
         if self.metric.shape != (len(coords), len(coords)):
             raise ValueError(
@@ -104,7 +112,12 @@ class Spacetime:
 
     def christoffel(self, simplified: bool = False) -> ImmutableDenseNDimArray:
         """
-        Christoffel symbols of the second kind Γ^σ_μν.
+        Connection coefficients Γ^σ_μν.
+
+        For the default Levi-Civita connection these are the standard
+        Christoffel symbols computed from the metric.  When a custom
+        ``connection`` was supplied at construction time its coefficients
+        are returned directly (allowing torsion / non-symmetric connections).
 
         Index order: [σ, μ, ν]
 
@@ -119,9 +132,12 @@ class Spacetime:
         ImmutableDenseNDimArray, shape (n, n, n)
         """
         if self._christoffel is None:
-            self._christoffel = compute_christoffel(
-                self.coords, self.metric, self.metric_inverse()
-            )
+            if self.connection is not None:
+                self._christoffel = self.connection.coefficients
+            else:
+                self._christoffel = compute_christoffel(
+                    self.coords, self.metric, self.metric_inverse()
+                )
         result = self._christoffel
         return simplify_array(result) if simplified else result
 

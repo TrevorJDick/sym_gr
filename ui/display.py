@@ -250,6 +250,90 @@ def display_rank2_nonzero(
         st.info("All components are zero.")
 
 
+def display_rank3_antisym_nonzero(
+    tensor: ImmutableDenseNDimArray,
+    coords: list,
+    tensor_symbol: str = "T",
+) -> None:
+    """
+    Display non-zero components of a rank-3 tensor antisymmetric in its
+    last two indices (e.g. the torsion tensor T^σ_μν).
+
+    Groups by upper index σ.  For each pair (μ < ν) shows:
+        tensor_symbol^σ_μν = −tensor_symbol^σ_νμ = value
+
+    Parameters
+    ----------
+    tensor_symbol : str
+        LaTeX symbol for the tensor, e.g. ``"T"`` or ``"K"``.
+    """
+    n = tensor.shape[0]
+    any_nonzero = False
+
+    for sigma in range(n):
+        group_lines: list[str] = []
+        for mu in range(n):
+            for nu in range(mu + 1, n):
+                val = tensor[sigma, mu, nu]
+                if val == 0:
+                    continue
+                any_nonzero = True
+                s = _coord_label(coords[sigma])
+                m = _coord_label(coords[mu])
+                nv = _coord_label(coords[nu])
+                lhs = (
+                    rf"{tensor_symbol}^{{{s}}}_{{{m} {nv}}} = "
+                    rf"-{tensor_symbol}^{{{s}}}_{{{nv} {m}}}"
+                )
+                group_lines.append(rf"{lhs} = {latex(val)}")
+
+        if group_lines:
+            st.latex(r" \\ ".join(group_lines))
+
+    if not any_nonzero:
+        st.info(f"All {tensor_symbol}^σ_μν components are zero.")
+
+
+def display_rank3_general_nonzero(
+    tensor: ImmutableDenseNDimArray,
+    coords: list,
+    tensor_symbol: str = r"\Gamma",
+) -> None:
+    """
+    Display non-zero components of a general rank-3 tensor Γ^σ_μν with
+    no assumed symmetry in the lower indices.
+
+    Groups by upper index σ.
+
+    Parameters
+    ----------
+    tensor_symbol : str
+        LaTeX symbol for the tensor, default ``\\Gamma``.
+    """
+    n = tensor.shape[0]
+    any_nonzero = False
+
+    for sigma in range(n):
+        group_lines: list[str] = []
+        for mu in range(n):
+            for nu in range(n):
+                val = tensor[sigma, mu, nu]
+                if val == 0:
+                    continue
+                any_nonzero = True
+                s = _coord_label(coords[sigma])
+                m = _coord_label(coords[mu])
+                nv = _coord_label(coords[nu])
+                lhs = rf"{tensor_symbol}^{{{s}}}_{{{m} {nv}}}"
+                group_lines.append(rf"{lhs} = {latex(val)}")
+
+        if group_lines:
+            st.latex(r" \\ ".join(group_lines))
+
+    if not any_nonzero:
+        st.info(f"All {tensor_symbol}^σ_μν components are zero.")
+
+
 def display_scalar(expr, name: str) -> None:
     """Render a scalar quantity as ``name = value``."""
     st.latex(rf"{name} = {latex(expr)}")

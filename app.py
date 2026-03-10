@@ -27,6 +27,8 @@ from ui.parse import parse_coords, parse_metric, parse_constraint
 from ui.display import (
     display_metric_preview,
     display_rank3_nonzero,
+    display_rank3_antisym_nonzero,
+    display_rank3_general_nonzero,
     display_rank4_nonzero,
     display_rank2_nonzero,
     display_scalar,
@@ -44,6 +46,7 @@ from ui.coord_config import render_coord_config, COORD_PRESETS
 from ui.drill_down import display_christoffel_steps, display_riemann_steps
 from ui.export import build_full_latex, build_python_code, render_export_buttons
 from ui.metric_grid import render_metric_grid
+from ui.connection_config import render_connection_config
 
 # ---------------------------------------------------------------------------
 # Presets
@@ -790,10 +793,33 @@ render_efe_result(lambda_str, kappa_str, T_str)
 st.divider()
 
 # ---------------------------------------------------------------------------
-# ── Section 4: Metric Ansatz ────────────────────────────────────────────────
+# ── Section 4: Connection ───────────────────────────────────────────────────
 # ---------------------------------------------------------------------------
 
-st.header("4 · Metric Ansatz")
+st.header("4 · Connection")
+st.caption(
+    "Choose the affine connection used to compute covariant derivatives "
+    "and curvature. The default Levi-Civita connection is derived from "
+    "the metric. Use the torsion or full-connection modes to explore "
+    "non-Riemannian geometries."
+)
+
+if _coord_syms:
+    _conn_mode, _conn_tensor = render_connection_config(len(_coord_syms), _coord_syms)
+    st.session_state["_conn_mode"] = _conn_mode
+    st.session_state["_conn_tensor"] = _conn_tensor
+else:
+    st.info("Define coordinates above first.")
+    st.session_state["_conn_mode"] = "levi_civita"
+    st.session_state["_conn_tensor"] = None
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# ── Section 5: Metric Ansatz ────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+
+st.header("5 · Metric Ansatz")
 
 # ── Signature selector ──────────────────────────────────────────────────────
 from ui.coord_config import COORD_PRESETS as _COORD_PRESETS
@@ -973,8 +999,22 @@ compute_clicked = st.button("Compute", type="primary", disabled=not _parse_ok)
 if compute_clicked and _parse_ok:
     _wipe_tensors()
     from core.spacetime import Spacetime
+    from core.connection import Connection
     try:
-        st.session_state["spacetime"] = Spacetime(_coord_syms, _metric_preview)
+        _conn_mode = st.session_state.get("_conn_mode", "levi_civita")
+        _conn_tensor = st.session_state.get("_conn_tensor")
+        _metric_inv = _metric_preview.inv()
+        if _conn_mode == "torsion" and _conn_tensor is not None:
+            _connection = Connection.from_metric_and_torsion(
+                _coord_syms, _metric_preview, _metric_inv, _conn_tensor
+            )
+        elif _conn_mode == "full" and _conn_tensor is not None:
+            _connection = Connection.from_coefficients(_conn_tensor)
+        else:
+            _connection = None  # Levi-Civita (computed inside Spacetime)
+        st.session_state["spacetime"] = Spacetime(
+            _coord_syms, _metric_preview, connection=_connection
+        )
         st.session_state["_input_key"] = (
             coords_str,
             metric_input,
@@ -982,12 +1022,23 @@ if compute_clicked and _parse_ok:
             lambda_str,
             kappa_str,
             T_str,
+            _conn_mode,
+            str(_conn_tensor),
         )
     except Exception as e:
         st.error(f"Spacetime construction failed: {e}")
 
 # Invalidate cache when inputs change
-current_key = (coords_str, metric_input, simplified, lambda_str, kappa_str, T_str)
+current_key = (
+    coords_str,
+    metric_input,
+    simplified,
+    lambda_str,
+    kappa_str,
+    T_str,
+    st.session_state.get("_conn_mode", "levi_civita"),
+    str(st.session_state.get("_conn_tensor")),
+)
 if (
     st.session_state["_input_key"] is not None
     and current_key != st.session_state["_input_key"]
@@ -998,10 +1049,10 @@ if (
 st.divider()
 
 # ---------------------------------------------------------------------------
-# ── Section 4: Results ──────────────────────────────────────────────────────
+# ── Section 6: Results ──────────────────────────────────────────────────────
 # ---------------------------------------------------------------------------
 
-st.header("5 · Results")
+st.header("6 · Results")
 
 
 def _get_spacetime():
@@ -1036,16 +1087,46 @@ with st.expander("Conventions & index notation", expanded=False):
 # If so, we rerun at the end so the updated expanded= flags take effect.
 _did_compute = False
 
+# ---- Torsion (non-LC modes only) ------------------------------------------
+_active_conn_mode = st.session_state.get("_conn_mode", "levi_civita")
+if _active_conn_mode != "levi_civita":
+    with st.expander(
+        "Torsion Tensor  T^σ_μν",
+        expanded=st.session_state.get("_torsion_expanded", False),
+    ):
+        _torsion_mode_label = (
+            "User-supplied torsion tensor."
+            if _active_conn_mode == "torsion"
+            else "Antisymmetric part of the full connection  T^σ_μν = Γ^σ_μν − Γ^σ_νμ."
+        )
+        st.caption(_torsion_mode_label)
+        st_obj = _get_spacetime()
+        if st_obj is None:
+            _need_compute_msg()
+        else:
+            _torsion_arr = st_obj.connection.torsion() if st_obj.connection else None
+            if _torsion_arr is not None:
+                st.session_state.setdefault("_torsion_expanded", True)
+                display_rank3_antisym_nonzero(
+                    _torsion_arr, _coord_syms, tensor_symbol="T"
+                )
+
 # ---- Christoffel ----------------------------------------------------------
 with st.expander(
-    "Christoffel Symbols  Γ^σ_μν",
+    "Connection Coefficients  Γ^σ_μν"
+    if _active_conn_mode != "levi_civita"
+    else "Christoffel Symbols  Γ^σ_μν",
     expanded=st.session_state.get("_chri_expanded", False),
 ):
-    st.caption(
-        r"Connection coefficients of the metric. "
+    _chri_caption = (
+        r"Full connection coefficients (not symmetric in $\mu, \nu$ for non-LC modes). "
+        r"Riemann and all downstream tensors are computed from these."
+        if _active_conn_mode != "levi_civita"
+        else r"Connection coefficients of the metric. "
         r"$\Gamma^\sigma{}_{\mu\nu} = 0$ in locally flat (normal) coordinates; "
         r"non-zero here reflects coordinate curvature, not necessarily spacetime curvature."
     )
+    st.caption(_chri_caption)
     st_obj = _get_spacetime()
     if st_obj is None:
         _need_compute_msg()
@@ -1102,9 +1183,14 @@ with st.expander(
                     from ui.display import display_rank3_all
                     display_rank3_all(st.session_state["christoffel"], st_obj.coords)
                 else:
-                    display_rank3_nonzero(
-                        st.session_state["christoffel"], st_obj.coords
-                    )
+                    if _active_conn_mode != "levi_civita":
+                        display_rank3_general_nonzero(
+                            st.session_state["christoffel"], st_obj.coords
+                        )
+                    else:
+                        display_rank3_nonzero(
+                            st.session_state["christoffel"], st_obj.coords
+                        )
 
             st.divider()
             _latex_out = build_full_latex(
