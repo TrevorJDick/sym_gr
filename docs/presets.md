@@ -736,7 +736,7 @@ verify the deformed solution directly.
 
 Define $f(r) \equiv 1 - \frac{2m\sqrt{1 - \alpha^2 r^2}}{r}$.  Then:
 
-$$g_{\mu\nu} = \text{diag}\!\left(-f(r),\;\frac{1}{f(r)\,(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)$$
+$$g_{\mu\nu} = \text{diag}\left(-f(r),\;\frac{1}{f(r)(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)$$
 
 As $\alpha \to 0$: $f(r) \to 1 - 2m/r$, and the metric reduces to the standard
 Schwarzschild solution with $A(r) = B(r)^{-1} = 1 - 2m/r$.
