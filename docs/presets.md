@@ -782,8 +782,8 @@ generated here are those ODEs.
 $0 = t,\ 1 = r,\ 2 = \theta,\ 3 = \phi$.
 
 **Connection mode:** Torsion (Mode 2).  The connection is
-$\Gamma^\sigma{}_{\mu\nu} = \mathring{\Gamma}^\sigma{}_{\mu\nu} + K^\sigma{}_{\mu\nu}$
-where $\mathring{\Gamma}$ is the Levi-Civita part and $K$ is the contorsion
+$\Gamma^\sigma{}_{\mu\nu} = \Gamma^\sigma{}_{\mu\nu}[\text{LC}] + K^\sigma{}_{\mu\nu}$
+where $\Gamma[\text{LC}]$ is the Levi-Civita part and $K$ is the contorsion
 derived automatically from the pre-filled $T^\sigma{}_{\mu\nu}$.
 
 **Metric ansatz** (five Schwarzschild symmetry steps, same as the Schwarzschild preset):
@@ -831,7 +831,7 @@ antisymmetry $T^\sigma{}_{\mu\nu} = -T^\sigma{}_{\nu\mu}$):
 | $(2,\,1,\,3)$ | $+2\sin\theta\,\sqrt{AB} \cdot N^0$ | $\varepsilon_{2130} = +1$, $g^{22} = 1/r^2$ |
 | $(3,\,1,\,2)$ | $-2\sqrt{AB}/\sin\theta \cdot N^0$ | $\varepsilon_{3120} = -1$, $g^{33} = 1/(r^2\sin^2\theta)$ |
 
-The signs come from the permutation parity of $\varepsilon_{ρμν0}$:
+The signs come from the permutation parity of $\varepsilon_{\rho\mu\nu 0}$:
 $\varepsilon_{1230} = -1$ (3 inversions in $[1,2,3,0]$),
 $\varepsilon_{2130} = +1$ (4 inversions in $[2,1,3,0]$),
 $\varepsilon_{3120} = -1$ (5 inversions in $[3,1,2,0]$).
