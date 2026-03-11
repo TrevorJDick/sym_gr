@@ -220,6 +220,138 @@ PRESETS: dict[str, dict] = {
             },
         ],
     },
+    # ------------------------------------------------------------------
+    # Milton (2020) torsion presets
+    # arXiv:2003.11587 — "A possible explanation of dark matter and dark
+    # energy involving a vector torsion field"
+    # ------------------------------------------------------------------
+
+    # Schwarzschild metric deformed by the subluminal torsion parameter α.
+    # Section 9, eq. 9.13–9.14 (simplified with α = β):
+    #   b(r) = 1 − 2m√(1−α²r²)/r,   a(r) = 1 / (b(r)(1−α²r²))
+    # Reduces to standard Schwarzschild as α → 0.
+    # No torsion entered here — the metric already encodes the solution.
+    "Milton: modified Schwarzschild": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Schwarzschild ansatz",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": (
+            "Matrix(["
+            "[-(1 - 2*m*sqrt(1 - alpha**2*r**2)/r), 0, 0, 0], "
+            "[0, 1/((1 - 2*m*sqrt(1 - alpha**2*r**2)/r)*(1 - alpha**2*r**2)), 0, 0], "
+            "[0, 0, r**2, 0], "
+            "[0, 0, 0, r**2*sin(theta)**2]])"
+        ),
+        "conn_mode": "levi_civita",
+    },
+
+    # Spherically symmetric ansatz with the subluminal torsion (Section 9 Case A).
+    # The torsion vector field has only a time component N0(r) ≠ 0.
+    # Torsion T^σ_μν = 2 g^σρ ε_ρμν0 N0(r) √(−g) pre-filled in Mode 2.
+    # Vacuum field equations (G_μν = 0 from full connection) reproduce
+    # Milton's modified black-hole solution when solved for A(r), B(r), N0(r).
+    "Milton: subluminal torsion (spherical)": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Schwarzschild ansatz",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": None,
+        "ansatz_steps": [
+            {
+                "description": "Static metric — t→-t symmetry kills time-space cross terms",
+                "step_type": "constraint",
+                "content": "g_t_r = 0\ng_t_theta = 0\ng_t_phi = 0",
+            },
+            {
+                "description": "Spherical symmetry — no r-angle or angle-angle mixing",
+                "step_type": "constraint",
+                "content": "g_r_theta = 0\ng_r_phi = 0\ng_theta_phi = 0",
+            },
+            {
+                "description": "SO(3) invariance — angular block must be a round sphere",
+                "step_type": "constraint",
+                "content": "g_phi_phi = sin(theta)**2 * g_theta_theta",
+            },
+            {
+                "description": "Coordinate choice — define r so the angular area element is 4πr²",
+                "step_type": "constraint",
+                "content": "g_theta_theta = r**2",
+            },
+            {
+                "description": "Rename the two remaining free functions",
+                "step_type": "constraint",
+                "content": "g_t_t = -A(r)\ng_r_r = B(r)",
+            },
+        ],
+        "conn_mode": "torsion",
+        # T^σ_μν = 2 g^σσ ε_σμν0 N0(r) √(AB) r² sinθ  (only ρ=σ survives for diagonal g)
+        # Nonzero upper-triangle components (σ, μ<ν):
+        #   T^1_23 = −2 r² sinθ √(AB)/B · N0      [ε_1230 = −1, g^11 = 1/B]
+        #   T^2_13 = +2 sinθ √(AB) · N0            [ε_2130 = +1, g^22 = 1/r²]
+        #   T^3_12 = −2 √(AB)/sinθ · N0            [ε_3120 = −1, g^33 = 1/(r²sin²θ)]
+        "torsion_grid": {
+            (1, 2, 3): "-2*r**2*sin(theta)*sqrt(A(r)*B(r))*N0(r)/B(r)",
+            (2, 1, 3): "2*sin(theta)*sqrt(A(r)*B(r))*N0(r)",
+            (3, 1, 2): "-2*sqrt(A(r)*B(r))*N0(r)/sin(theta)",
+        },
+    },
+
+    # Spherically symmetric ansatz with the superluminal torsion (Section 9 Case B).
+    # The torsion vector field has only a radial component N1(r) ≠ 0.
+    # Torsion T^σ_μν = 2 g^σρ ε_ρμν1 N1(r) √(−g) pre-filled in Mode 2.
+    "Milton: superluminal torsion (spherical)": {
+        "lambda_str": "0",
+        "kappa_str": "8*pi*G",
+        "T_str": "0",
+        "coord_preset": "Schwarzschild ansatz",
+        "signature": "-+++",
+        "coords": "t, r, theta, phi",
+        "metric": None,
+        "ansatz_steps": [
+            {
+                "description": "Static metric — t→-t symmetry kills time-space cross terms",
+                "step_type": "constraint",
+                "content": "g_t_r = 0\ng_t_theta = 0\ng_t_phi = 0",
+            },
+            {
+                "description": "Spherical symmetry — no r-angle or angle-angle mixing",
+                "step_type": "constraint",
+                "content": "g_r_theta = 0\ng_r_phi = 0\ng_theta_phi = 0",
+            },
+            {
+                "description": "SO(3) invariance — angular block must be a round sphere",
+                "step_type": "constraint",
+                "content": "g_phi_phi = sin(theta)**2 * g_theta_theta",
+            },
+            {
+                "description": "Coordinate choice — define r so the angular area element is 4πr²",
+                "step_type": "constraint",
+                "content": "g_theta_theta = r**2",
+            },
+            {
+                "description": "Rename the two remaining free functions",
+                "step_type": "constraint",
+                "content": "g_t_t = -A(r)\ng_r_r = B(r)",
+            },
+        ],
+        "conn_mode": "torsion",
+        # T^σ_μν = 2 g^σσ ε_σμν1 N1(r) √(AB) r² sinθ
+        # Nonzero upper-triangle components (σ, μ<ν):
+        #   T^0_23 = −2 r² sinθ √(AB)/A · N1      [ε_0231 = +1, g^00 = −1/A]
+        #   T^2_03 = −2 sinθ √(AB) · N1            [ε_2031 = −1, g^22 = 1/r²]
+        #   T^3_02 = +2 √(AB)/sinθ · N1            [ε_3021 = +1, g^33 = 1/(r²sin²θ)]
+        "torsion_grid": {
+            (0, 2, 3): "-2*r**2*sin(theta)*sqrt(A(r)*B(r))*N1(r)/A(r)",
+            (2, 0, 3): "-2*sin(theta)*sqrt(A(r)*B(r))*N1(r)",
+            (3, 0, 2): "2*sqrt(A(r)*B(r))*N1(r)/sin(theta)",
+        },
+    },
+
     "Kerr": {
         "lambda_str": "0",
         "kappa_str": "8*pi*G",
@@ -334,10 +466,14 @@ if st.session_state.pop("_reset_requested", False):
         "_kappa_input",
         "_metric_input",
         "_T_input",
+        "_conn_mode_radio",
     ]
     for _wk in _WIDGET_KEYS_TO_CLEAR:
         st.session_state.pop(_wk, None)
-    # Clear grid and step-log widget keys
+    # Clear grid, step-log, and connection widget keys.
+    # Note: tor_asym_grid and conn_full_grid (backing dicts) are intentionally
+    # excluded — they are repopulated by _apply_connection_preset() in
+    # _reset_to_defaults() and must survive into the next render pass.
     for _wk in list(st.session_state.keys()):
         if (
             _wk.startswith("mg_")
@@ -352,6 +488,8 @@ if st.session_state.pop("_reset_requested", False):
             or _wk.startswith("_capply_")
             or _wk.startswith("_cundo_")
             or _wk.startswith("_cdel_")
+            or (_wk.startswith("tor_") and _wk != "tor_asym_grid")
+            or (_wk.startswith("conn_") and _wk != "conn_full_grid")
         ):
             del st.session_state[_wk]
     # If resetting within a preset, restore _preset_select so the sidebar
@@ -406,6 +544,50 @@ def _wipe_tensors() -> None:
 # ---------------------------------------------------------------------------
 # Helper: reset all state to defaults
 # ---------------------------------------------------------------------------
+
+def _apply_connection_preset(p: dict) -> None:
+    """Push a preset's connection mode and torsion/full-connection grid into
+    session state so that Section 4 (Connection) renders the right values.
+
+    For presets with ``conn_mode = 'levi_civita'`` (or no conn_mode key) this
+    simply resets the selector to Levi-Civita and clears both grids.
+
+    For ``conn_mode = 'torsion'`` it also populates ``tor_asym_grid`` and the
+    individual text-input widget keys from ``p['torsion_grid']``.
+
+    For ``conn_mode = 'full'`` it populates ``conn_full_grid`` and widget keys
+    from ``p['conn_grid']``.
+    """
+    from ui.connection_config import MODES
+
+    mode = p.get("conn_mode", "levi_civita")
+    label = next(k for k, v in MODES.items() if v == mode)
+    st.session_state["_conn_mode_label"] = label
+    st.session_state["_conn_mode_radio"] = label
+
+    # Remove stale individual widget keys from any previous connection preset.
+    for _k in list(st.session_state.keys()):
+        if (
+            (_k.startswith("tor_") and _k != "tor_asym_grid")
+            or (_k.startswith("conn_") and _k != "conn_full_grid")
+        ):
+            del st.session_state[_k]
+
+    # Reset both backing dicts then fill the relevant one.
+    st.session_state["tor_asym_grid"] = {}
+    st.session_state["conn_full_grid"] = {}
+
+    if mode == "torsion":
+        tg = p.get("torsion_grid", {})
+        st.session_state["tor_asym_grid"] = dict(tg)
+        for (s, mu, nu), val in tg.items():
+            st.session_state[f"tor_{s}_{mu}_{nu}"] = val
+    elif mode == "full":
+        cg = p.get("conn_grid", {})
+        st.session_state["conn_full_grid"] = dict(cg)
+        for (s, mu, nu), val in cg.items():
+            st.session_state[f"conn_{s}_{mu}_{nu}"] = val
+
 
 def _reset_to_defaults() -> None:
     """Reset to the beginning of the current preset, or to a blank general ansatz.
@@ -473,6 +655,10 @@ def _reset_to_defaults() -> None:
         # No preset — general ansatz in current coordinates, empty step log
         st.session_state["_ansatz_steps"] = []
         st.session_state["_use_general_ansatz"] = True
+
+    # Restore connection mode and torsion/full grid for the active preset
+    # (or reset to Levi-Civita when no preset is active).
+    _apply_connection_preset(p if p else {})
 
     # Clear grid widget state
     for key in list(st.session_state.keys()):
@@ -587,12 +773,14 @@ with st.sidebar:
             st.session_state["_ansatz_base_metric"] = None
             st.session_state["_use_general_ansatz"] = False
 
+        _apply_connection_preset(p)
         _wipe_tensors()
     elif preset_choice == "(none)" and _last is not None:
         # User explicitly cleared the preset — reset to general ansatz with empty steps.
         st.session_state["_last_applied_preset"] = None
         st.session_state["_ansatz_steps"] = []
         st.session_state["_use_general_ansatz"] = True
+        _apply_connection_preset({})
         _wipe_tensors()
 
     st.divider()

@@ -713,6 +713,241 @@ reduces to the standard Schwarzschild form.
 
 ---
 
+## Preset: Milton — modified Schwarzschild
+
+**Physics:** The analytic closed-form solution derived by Milton (2020, arXiv:2003.11587)
+for a spherically-symmetric spacetime with a subluminal torsion vector field.  The
+torsion introduces a new integration parameter $\alpha$ that deforms the Schwarzschild
+geometry at large $r$ while recovering it near the black hole.  At galactic scales
+the deformation can mimic a dark-matter-like gravitational effect without any new
+matter content.
+
+**Coordinates:** $(t, r, \theta, \phi)$ — Schwarzschild coordinates.
+
+**Connection mode:** Levi-Civita.  The metric already encodes the effect of the torsion
+vector; no separate torsion tensor is entered in this preset.  Use it to inspect and
+verify the deformed solution directly.
+
+**Parameters:**
+- $m$ — mass (geometric units, plays the role of $M$ in Schwarzschild)
+- $\alpha$ — torsion parameter (units of inverse length; $\alpha \to 0$ recovers Schwarzschild)
+
+**Metric** (Milton §9, eq. 9.13–9.14 with $\alpha = \beta$):
+
+Define $f(r) \equiv 1 - \dfrac{2m\sqrt{1 - \alpha^2 r^2}}{r}$.  Then:
+
+```math
+g_{\mu\nu} = \operatorname{diag}\!\left(-f(r),\;\frac{1}{f(r)\,(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)
+```
+
+As $\alpha \to 0$: $f(r) \to 1 - 2m/r$, and the metric reduces to the standard
+Schwarzschild solution with $A(r) = B(r)^{-1} = 1 - 2m/r$.
+
+**What to expect:**
+- Computing $G_{\mu\nu}$ with the Levi-Civita connection should return a non-zero
+  result — this is *not* a vacuum GR solution.  The Einstein tensor encodes the
+  effective stress-energy sourced by the torsion field.
+- The effective stress-energy (eq. 5.5 of the paper) takes the form
+  $T_{\mu\nu}^{\text{eff}} = [g_{\mu\nu}\,g^{\rho\sigma}N_\rho N_\sigma - 2N_\mu N_\nu]/\kappa$
+  where $N_\mu$ is the torsion covector.
+- For the subluminal case ($N^r = N^\theta = N^\phi = 0$, only $N^t \neq 0$) the
+  effective energy density is positive and the pressure is negative — consistent with
+  a dark-energy-like equation of state.
+- Computation time: moderate (~2–5 min) because $\sqrt{1-\alpha^2 r^2}$ generates
+  non-trivial derivative chains.
+
+**Applying constraints:**
+To recover Schwarzschild set `alpha = 0` in the Constraints box.  All torsion
+corrections vanish and $G_{\mu\nu} = 0$.
+
+**References:**
+- Milton, G.W. (2020). *A possible explanation of dark matter and dark energy
+  involving a vector torsion field.* arXiv preprint.
+  [arXiv:2003.11587](https://arxiv.org/abs/2003.11587) [gr-qc].
+  §9, eq. 9.13–9.14 for the explicit subluminal solution.
+
+---
+
+## Preset: Milton — subluminal torsion (spherical)
+
+**Physics:** The starting point for Milton's (2020) spherically-symmetric vacuum
+field equations in the **subluminal regime**: the torsion vector field has only a
+time component $N^0(r) \neq 0$ (all spatial components zero).  The metric and
+the torsion field are left as unknowns to be solved for simultaneously.
+
+Unlike the "modified Schwarzschild" preset above, this preset does **not** load a
+closed-form solution — it sets up the coupled system of ODEs in $A(r)$, $B(r)$,
+and $N^0(r)$ that Milton solves analytically in his paper.  The field equations
+generated here are those ODEs.
+
+**Coordinates:** $(t, r, \theta, \phi)$.  The coordinate index order is
+$0 = t,\ 1 = r,\ 2 = \theta,\ 3 = \phi$.
+
+**Connection mode:** Torsion (Mode 2).  The connection is
+$\Gamma^\sigma{}_{\mu\nu} = \mathring{\Gamma}^\sigma{}_{\mu\nu} + K^\sigma{}_{\mu\nu}$
+where $\mathring{\Gamma}$ is the Levi-Civita part and $K$ is the contorsion
+derived automatically from the pre-filled $T^\sigma{}_{\mu\nu}$.
+
+**Metric ansatz** (five Schwarzschild symmetry steps, same as the Schwarzschild preset):
+
+```math
+g_{\mu\nu} = \operatorname{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
+```
+
+**Stress-energy tensor:** $T_{\mu\nu} = 0$ (vacuum; the torsion contribution enters
+through the modified connection, not through $T_{\mu\nu}$).
+
+### Why the torsion components contain $A(r)$ and $B(r)$
+
+Milton's key result (§3, eq. 3.9) is that the requirement "geodesics = autoparallels"
+forces the torsion to be **completely antisymmetric** in all three indices when
+fully lowered: $T_{\lambda\mu\nu} = T_{[\lambda\mu\nu]}$.  In 4D, any completely
+antisymmetric rank-3 tensor is dual to a single contravariant 4-vector $N^k$:
+
+```math
+T^\sigma{}_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu\kappa}\,N^\kappa\,\sqrt{-g}
+```
+
+Here $\varepsilon_{\rho\mu\nu\kappa}$ is the Levi-Civita symbol ($\varepsilon_{0123} = +1$),
+and $\sqrt{-g}$ is the square root of the metric determinant — which for our diagonal
+ansatz is:
+
+```math
+\sqrt{-g} = \sqrt{A(r)\,B(r)}\,r^2\sin\theta
+```
+
+The factor $g^{\sigma\rho}$ also brings in the metric inverse.  **This is why
+$A(r)$ and $B(r)$ appear inside the torsion components**: the torsion is
+constructed from $N^k$ plus the metric, so expressing $T^\sigma{}_{\mu\nu}$
+requires the metric functions even before any equations are solved.
+
+This is not circular.  The field equations come out as a coupled nonlinear ODE
+system in $A(r)$, $B(r)$, and $N^0(r)$ simultaneously — analogous to how the
+FLRW preset has $T_{\mu\nu}$ containing $a(t)$ while $a(t)$ is the unknown being
+solved for.  SymPy treats $A(r)$, $B(r)$, $N^0(r)$ as abstract functions and
+carries their derivatives through the full Riemann pipeline symbolically.
+
+### Pre-filled torsion components
+
+For the subluminal case $N^k = (N^0(r), 0, 0, 0)$ only the following upper-triangle
+entries of $T^\sigma{}_{\mu\nu}$ are non-zero (the lower triangle follows from
+antisymmetry $T^\sigma{}_{\mu\nu} = -T^\sigma{}_{\nu\mu}$):
+
+| $(\sigma,\,\mu,\,\nu)$ | Component | Derivation |
+|---|---|---|
+| $(1,\,2,\,3)$ | $-2r^2\sin\theta\,\sqrt{AB}/B \cdot N^0$ | $\varepsilon_{1230} = -1$, $g^{11} = 1/B$ |
+| $(2,\,1,\,3)$ | $+2\sin\theta\,\sqrt{AB} \cdot N^0$ | $\varepsilon_{2130} = +1$, $g^{22} = 1/r^2$ |
+| $(3,\,1,\,2)$ | $-2\sqrt{AB}/\sin\theta \cdot N^0$ | $\varepsilon_{3120} = -1$, $g^{33} = 1/(r^2\sin^2\theta)$ |
+
+The signs come from the permutation parity of $\varepsilon_{ρμν0}$:
+$\varepsilon_{1230} = -1$ (3 inversions in $[1,2,3,0]$),
+$\varepsilon_{2130} = +1$ (4 inversions in $[2,1,3,0]$),
+$\varepsilon_{3120} = -1$ (5 inversions in $[3,1,2,0]$).
+
+One can verify complete antisymmetry of the lowered tensor by checking
+$T_{123} = T_{231} = T_{312} = -2r^2\sin\theta\,\sqrt{AB}\,N^0$ (all equal,
+confirming it is totally antisymmetric under cyclic permutations). ✓
+
+### What to expect
+
+- The field equations $G_{\mu\nu} = 0$ (from the full torsion connection) will be
+  a system of ODEs in $A(r)$, $B(r)$, $N^0(r)$.
+- This is equivalent to Milton's eq. 9.3, written as $R_{\mu\nu} = 0$ for the
+  full (torsion) connection — since $R = 0$ from the trace, $G = R - \frac{1}{2}gR = R$.
+- The vacuum field equations have the analytic solution (eq. 9.13–9.14):
+  $A(r) = 1/[f(r)(1-\alpha^2 r^2)]$, $B(r) = f(r) = 1 - 2m\sqrt{1-\alpha^2 r^2}/r$,
+  with $(N^0)^2 = \alpha^2/(\kappa b)$.
+- Apply these as constraints to verify the residuals reduce to $0 = 0$.
+- **Computation time:** Expect 5–15 min.  The torsion terms add extra algebraic
+  complexity compared to the Schwarzschild ansatz alone.
+
+**References:**
+- Milton, G.W. (2020). *A possible explanation of dark matter and dark energy
+  involving a vector torsion field.* arXiv preprint.
+  [arXiv:2003.11587](https://arxiv.org/abs/2003.11587) [gr-qc].
+  §3 (complete antisymmetry condition, eq. 3.9), §5 (field equations), §9 (spherical solutions).
+- Hehl, F.W., McCrea, J.D., Mielke, E.W., & Ne'eman, Y. (1995).
+  *Metric-affine gauge theory of gravity: Field equations, Noether identities,
+  world spinors, and breaking of dilation invariance.*
+  Physics Reports, 258(1–2), 1–171. — general framework for torsion and contorsion.
+- See also `docs/connections.md` in this repository for the contorsion construction
+  ($K^\sigma{}_{\mu\nu}$ from $T^\sigma{}_{\mu\nu}$) used by Mode 2.
+
+---
+
+## Preset: Milton — superluminal torsion (spherical)
+
+**Physics:** The spherically-symmetric, superluminal-regime companion to the subluminal
+preset above.  Here the torsion vector field has only a **radial** component
+$N^1(r) \neq 0$ (time and angular components zero).  This corresponds to Milton's
+Case B (§9), which does not have a simple closed-form solution — the field equations
+form a nonlinear ODE system that must be solved numerically.  The paper reports
+"black hole"-type behaviour with $b(r) \to \infty$ as $r \to \infty$, suggesting a
+divergent effective mass at large distances — a possible dark-matter signal.
+
+**Coordinates:** $(t, r, \theta, \phi)$, same as the subluminal preset.
+
+**Connection mode:** Torsion (Mode 2), same pipeline.
+
+**Metric ansatz:** Identical five-step Schwarzschild symmetry reduction:
+
+```math
+g_{\mu\nu} = \operatorname{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
+```
+
+**Stress-energy tensor:** $T_{\mu\nu} = 0$ (vacuum).
+
+### Pre-filled torsion components
+
+For the superluminal case $N^k = (0, N^1(r), 0, 0)$, the formula becomes
+$T^\sigma{}_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu 1}\,N^1\,\sqrt{-g}$.
+Non-zero upper-triangle entries:
+
+| $(\sigma,\,\mu,\,\nu)$ | Component | Derivation |
+|---|---|---|
+| $(0,\,2,\,3)$ | $-2r^2\sin\theta\,\sqrt{AB}/A \cdot N^1$ | $\varepsilon_{0231} = +1$, $g^{00} = -1/A$ |
+| $(2,\,0,\,3)$ | $-2\sin\theta\,\sqrt{AB} \cdot N^1$ | $\varepsilon_{2031} = -1$, $g^{22} = 1/r^2$ |
+| $(3,\,0,\,2)$ | $+2\sqrt{AB}/\sin\theta \cdot N^1$ | $\varepsilon_{3021} = +1$, $g^{33} = 1/(r^2\sin^2\theta)$ |
+
+The sign derivations:
+$\varepsilon_{0231}$: $[0,2,3,1]$ has 2 inversions → $+1$.
+$\varepsilon_{2031}$: $[2,0,3,1]$ has 3 inversions → $-1$.
+$\varepsilon_{3021}$: $[3,0,2,1]$ has 4 inversions → $+1$.
+
+Note the structural parallel with the subluminal table: everywhere $A$ (the
+$g_{tt}$ function) appeared in the subluminal case, $B$ appears in the superluminal
+case and vice versa.  This reflects the swap $N^0 \leftrightarrow N^1$ under the
+causal structure change ($k = (N^0)^2 - (N^1)^2$ changes sign).
+
+### What to expect
+
+- Field equations are a coupled ODE system in $A(r)$, $B(r)$, $N^1(r)$.
+- No closed-form analytic solution is known; Milton integrates them numerically
+  (§9, Case B) and finds singularity-like behaviour at finite $r$ and
+  $b(r) \to \infty$ as $r \to \infty$.
+- The field equations generated here are the starting point for that numerical
+  analysis.
+- **Computation time:** Same order as the subluminal preset (~5–15 min).
+
+**Causal note:** The terminology "superluminal" refers to the torsion vector $N^k$
+being spacelike ($g_{\mu\nu}N^\mu N^\nu > 0$), not to any observable signal
+propagating faster than light.  The geodesic structure of the spacetime is
+modified by the torsion, but causality is preserved in the usual GR sense.
+
+**References:**
+- Milton, G.W. (2020). *A possible explanation of dark matter and dark energy
+  involving a vector torsion field.* arXiv preprint.
+  [arXiv:2003.11587](https://arxiv.org/abs/2003.11587) [gr-qc].
+  §9, Case B (superluminal spherical solution, numerical analysis).
+- Hehl, F.W., McCrea, J.D., Mielke, E.W., & Ne'eman, Y. (1995).
+  *Metric-affine gauge theory of gravity: Field equations, Noether identities,
+  world spinors, and breaking of dilation invariance.*
+  Physics Reports, 258(1–2), 1–171. — general framework for metric-affine theories
+  and the geometric origin of torsion.
+- See also `docs/connections.md` in this repository for the contorsion construction.
+
+---
+
 ## Adding your own spacetime
 
 To go beyond the presets:

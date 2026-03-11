@@ -51,6 +51,41 @@ Any spherically symmetric vacuum solution to the Einstein equations is static an
 
 ---
 
+## Torsion and Non-Riemannian Gravity
+
+**Milton, G.W. (2020)**
+*A possible explanation of dark matter and dark energy involving a vector torsion field.*
+arXiv preprint. [arXiv:2003.11587](https://arxiv.org/abs/2003.11587) [gr-qc].
+
+The paper that directly motivated the torsion connection feature and the Milton preset
+family in `sym_gr`. Key results used:
+- §3, eq. 3.9: the "geodesics = autoparallels" condition forces the torsion to be
+  completely antisymmetric in all three lowered indices, making it dual to a single
+  4-vector field $N^k$.
+- §5, eq. 5.5–5.7: the vacuum field equations $R_{\mu\nu}[\Gamma] = 0$ written
+  for the full torsion connection, and the equivalent effective stress-energy tensor.
+- §9, eq. 9.3–9.20: the spherically-symmetric ODE system (Cases A and B) and the
+  analytic subluminal solution (eq. 9.13–9.14) implemented in the presets.
+
+**Hehl, F.W., McCrea, J.D., Mielke, E.W., & Ne'eman, Y. (1995)**
+*Metric-affine gauge theory of gravity: Field equations, Noether identities,
+world spinors, and breaking of dilation invariance.*
+Physics Reports, 258(1–2), 1–171.
+
+The standard reference for the general metric-affine framework, covering torsion,
+non-metricity, and contorsion in a unified gauge-theoretic language. The contorsion
+decomposition $K^\sigma{}_{\mu\nu}$ used in `core/connection.py` (Mode 2) follows
+the conventions established in this work.
+
+**Cartan, É. (1922)**
+*Sur une généralisation de la notion de courbure de Riemann et les espaces à torsion.*
+Comptes Rendus de l'Académie des Sciences, 174, 593–595.
+
+The original introduction of torsion as a geometric quantity — the antisymmetric part
+of the affine connection. Einstein-Cartan gravity is the direct descendant.
+
+---
+
 ## Key Technical References
 
 ### Riemannian Geometry with SymPy Tensor Module

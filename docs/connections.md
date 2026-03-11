@@ -257,5 +257,5 @@ Everything from Riemann onward is mode-agnostic.
 
 - Carroll, S. (2004). *Spacetime and Geometry*. §3 (Levi-Civita connection, Riemann tensor)
 - Hehl, F. W. et al. (1995). Metric-affine gauge theory of gravity. *Physics Reports*, 258(1–2).
-- Milton, G. W. (2020). A possible explanation of dark matter and dark energy involving a vector torsion field. arXiv:2003.11587
+- Milton, G.W. (2020). *A possible explanation of dark matter and dark energy involving a vector torsion field.* arXiv preprint. [arXiv:2003.11587](https://arxiv.org/abs/2003.11587) [gr-qc]
 - Nakahara, M. (2003). *Geometry, Topology and Physics*. §7 (connections, torsion, curvature)
