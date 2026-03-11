@@ -25,9 +25,9 @@ sym_gr follows Carroll's conventions:
 
 | Tensor | Notation | Definition |
 |--------|----------|------------|
-| Christoffel | $\Gamma^\sigma{}_{\mu\nu}$ | $\frac{1}{2} g^{\sigma\rho}(\partial_\mu g_{\nu\rho} + \partial_\nu g_{\mu\rho} - \partial_\rho g_{\mu\nu})$ |
-| Riemann | $R^\rho{}_{\sigma\mu\nu}$ | $\partial_\mu \Gamma^\rho_{\nu\sigma} - \partial_\nu \Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}$ |
-| Ricci | $R_{\mu\nu}$ | $R^\rho{}_{\mu\rho\nu}$ (contract index 1 with index 3 of Riemann) |
+| Christoffel | $\Gamma^\sigma_{\mu\nu}$ | $\frac{1}{2} g^{\sigma\rho}(\partial_\mu g_{\nu\rho} + \partial_\nu g_{\mu\rho} - \partial_\rho g_{\mu\nu})$ |
+| Riemann | $R^\rho_{\sigma\mu\nu}$ | $\partial_\mu \Gamma^\rho_{\nu\sigma} - \partial_\nu \Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}$ |
+| Ricci | $R_{\mu\nu}$ | $R^\rho_{\mu\rho\nu}$ (contract index 1 with index 3 of Riemann) |
 | Einstein | $G_{\mu\nu}$ | $R_{\mu\nu} - \frac{1}{2} R\, g_{\mu\nu}$ |
 
 ### κ (coupling constant)
@@ -60,7 +60,7 @@ g_{\mu\nu} = \text{diag}(-1, 1, 1, 1)
 **How the metric is derived:**
 The Minkowski metric is not derived from an ansatz — it is the *definition* of flat
 spacetime in orthonormal Cartesian coordinates. The form $\text{diag}(-1,1,1,1)$ is
-the unique (up to signature convention) solution to $R^\rho{}_{\sigma\mu\nu} = 0$
+the unique (up to signature convention) solution to $R^\rho_{\sigma\mu\nu} = 0$
 in coordinates where all metric components are constant. The negative sign on the
 time component follows from the mostly-plus signature choice.
 
@@ -782,9 +782,9 @@ generated here are those ODEs.
 $0 = t,\ 1 = r,\ 2 = \theta,\ 3 = \phi$.
 
 **Connection mode:** Torsion (Mode 2).  The connection is
-$\Gamma^\sigma{}_{\mu\nu} = \Gamma^\sigma{}_{\mu\nu}[\text{LC}] + K^\sigma{}_{\mu\nu}$
+$\Gamma^\sigma_{\mu\nu} = \Gamma^\sigma_{\mu\nu}[\text{LC}] + K^\sigma_{\mu\nu}$
 where $\Gamma[\text{LC}]$ is the Levi-Civita part and $K$ is the contorsion
-derived automatically from the pre-filled $T^\sigma{}_{\mu\nu}$.
+derived automatically from the pre-filled $T^\sigma_{\mu\nu}$.
 
 **Metric ansatz** (five Schwarzschild symmetry steps, same as the Schwarzschild preset):
 
@@ -800,7 +800,7 @@ forces the torsion to be **completely antisymmetric** in all three indices when
 fully lowered: $T_{\lambda\mu\nu} = T_{[\lambda\mu\nu]}$.  In 4D, any completely
 antisymmetric rank-3 tensor is dual to a single contravariant 4-vector $N^k$:
 
-$$T^\sigma{}_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu\kappa}\,N^\kappa\,\sqrt{-g}$$
+$$T^\sigma_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu\kappa}\,N^\kappa\,\sqrt{-g}$$
 
 Here $\varepsilon_{\rho\mu\nu\kappa}$ is the Levi-Civita symbol ($\varepsilon_{0123} = +1$),
 and $\sqrt{-g}$ is the square root of the metric determinant — which for our diagonal
@@ -810,7 +810,7 @@ $$\sqrt{-g} = \sqrt{A(r)\,B(r)}\,r^2\sin\theta$$
 
 The factor $g^{\sigma\rho}$ also brings in the metric inverse.  **This is why
 $A(r)$ and $B(r)$ appear inside the torsion components**: the torsion is
-constructed from $N^k$ plus the metric, so expressing $T^\sigma{}_{\mu\nu}$
+constructed from $N^k$ plus the metric, so expressing $T^\sigma_{\mu\nu}$
 requires the metric functions even before any equations are solved.
 
 This is not circular.  The field equations come out as a coupled nonlinear ODE
@@ -822,8 +822,8 @@ carries their derivatives through the full Riemann pipeline symbolically.
 ### Pre-filled torsion components
 
 For the subluminal case $N^k = (N^0(r), 0, 0, 0)$ only the following upper-triangle
-entries of $T^\sigma{}_{\mu\nu}$ are non-zero (the lower triangle follows from
-antisymmetry $T^\sigma{}_{\mu\nu} = -T^\sigma{}_{\nu\mu}$):
+entries of $T^\sigma_{\mu\nu}$ are non-zero (the lower triangle follows from
+antisymmetry $T^\sigma_{\mu\nu} = -T^\sigma_{\nu\mu}$):
 
 | $(\sigma,\,\mu,\,\nu)$ | Component | Derivation |
 |---|---|---|
@@ -863,7 +863,7 @@ confirming it is totally antisymmetric under cyclic permutations). ✓
   world spinors, and breaking of dilation invariance.*
   Physics Reports, 258(1–2), 1–171. — general framework for torsion and contorsion.
 - See also `docs/connections.md` in this repository for the contorsion construction
-  ($K^\sigma{}_{\mu\nu}$ from $T^\sigma{}_{\mu\nu}$) used by Mode 2.
+  ($K^\sigma_{\mu\nu}$ from $T^\sigma_{\mu\nu}$) used by Mode 2.
 
 ---
 
@@ -890,7 +890,7 @@ $$g_{\mu\nu} = \text{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)$$
 ### Pre-filled torsion components
 
 For the superluminal case $N^k = (0, N^1(r), 0, 0)$, the formula becomes
-$T^\sigma{}_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu 1}\,N^1\,\sqrt{-g}$.
+$T^\sigma_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu 1}\,N^1\,\sqrt{-g}$.
 Non-zero upper-triangle entries:
 
 | $(\sigma,\,\mu,\,\nu)$ | Component | Derivation |
