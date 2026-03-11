@@ -737,7 +737,7 @@ verify the deformed solution directly.
 Define $f(r) \equiv 1 - \dfrac{2m\sqrt{1 - \alpha^2 r^2}}{r}$.  Then:
 
 ```math
-g_{\mu\nu} = \operatorname{diag}\!\left(-f(r),\;\frac{1}{f(r)\,(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)
+g_{\mu\nu} = \mathrm{diag}\!\left(-f(r),\;\frac{1}{f(r)\,(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)
 ```
 
 As $\alpha \to 0$: $f(r) \to 1 - 2m/r$, and the metric reduces to the standard
@@ -791,7 +791,7 @@ derived automatically from the pre-filled $T^\sigma{}_{\mu\nu}$.
 **Metric ansatz** (five Schwarzschild symmetry steps, same as the Schwarzschild preset):
 
 ```math
-g_{\mu\nu} = \operatorname{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
+g_{\mu\nu} = \mathrm{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
 ```
 
 **Stress-energy tensor:** $T_{\mu\nu} = 0$ (vacuum; the torsion contribution enters
@@ -892,7 +892,7 @@ divergent effective mass at large distances — a possible dark-matter signal.
 **Metric ansatz:** Identical five-step Schwarzschild symmetry reduction:
 
 ```math
-g_{\mu\nu} = \operatorname{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
+g_{\mu\nu} = \mathrm{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
 ```
 
 **Stress-energy tensor:** $T_{\mu\nu} = 0$ (vacuum).
