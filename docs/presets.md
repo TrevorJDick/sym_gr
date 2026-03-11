@@ -734,11 +734,9 @@ verify the deformed solution directly.
 
 **Metric** (Milton §9, eq. 9.13–9.14 with $\alpha = \beta$):
 
-Define $f(r) \equiv 1 - \dfrac{2m\sqrt{1 - \alpha^2 r^2}}{r}$.  Then:
+Define $f(r) \equiv 1 - \frac{2m\sqrt{1 - \alpha^2 r^2}}{r}$.  Then:
 
-```math
-g_{\mu\nu} = \mathrm{diag}\!\left(-f(r),\;\frac{1}{f(r)\,(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)
-```
+$$g_{\mu\nu} = \text{diag}\!\left(-f(r),\;\frac{1}{f(r)\,(1-\alpha^2 r^2)},\;r^2,\;r^2\sin^2\theta\right)$$
 
 As $\alpha \to 0$: $f(r) \to 1 - 2m/r$, and the metric reduces to the standard
 Schwarzschild solution with $A(r) = B(r)^{-1} = 1 - 2m/r$.
@@ -790,9 +788,7 @@ derived automatically from the pre-filled $T^\sigma{}_{\mu\nu}$.
 
 **Metric ansatz** (five Schwarzschild symmetry steps, same as the Schwarzschild preset):
 
-```math
-g_{\mu\nu} = \mathrm{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
-```
+$$g_{\mu\nu} = \text{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)$$
 
 **Stress-energy tensor:** $T_{\mu\nu} = 0$ (vacuum; the torsion contribution enters
 through the modified connection, not through $T_{\mu\nu}$).
@@ -804,17 +800,13 @@ forces the torsion to be **completely antisymmetric** in all three indices when
 fully lowered: $T_{\lambda\mu\nu} = T_{[\lambda\mu\nu]}$.  In 4D, any completely
 antisymmetric rank-3 tensor is dual to a single contravariant 4-vector $N^k$:
 
-```math
-T^\sigma{}_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu\kappa}\,N^\kappa\,\sqrt{-g}
-```
+$$T^\sigma{}_{\mu\nu} = 2\,g^{\sigma\rho}\,\varepsilon_{\rho\mu\nu\kappa}\,N^\kappa\,\sqrt{-g}$$
 
 Here $\varepsilon_{\rho\mu\nu\kappa}$ is the Levi-Civita symbol ($\varepsilon_{0123} = +1$),
 and $\sqrt{-g}$ is the square root of the metric determinant — which for our diagonal
 ansatz is:
 
-```math
-\sqrt{-g} = \sqrt{A(r)\,B(r)}\,r^2\sin\theta
-```
+$$\sqrt{-g} = \sqrt{A(r)\,B(r)}\,r^2\sin\theta$$
 
 The factor $g^{\sigma\rho}$ also brings in the metric inverse.  **This is why
 $A(r)$ and $B(r)$ appear inside the torsion components**: the torsion is
@@ -891,9 +883,7 @@ divergent effective mass at large distances — a possible dark-matter signal.
 
 **Metric ansatz:** Identical five-step Schwarzschild symmetry reduction:
 
-```math
-g_{\mu\nu} = \mathrm{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)
-```
+$$g_{\mu\nu} = \text{diag}(-A(r),\; B(r),\; r^2,\; r^2\sin^2\theta)$$
 
 **Stress-energy tensor:** $T_{\mu\nu} = 0$ (vacuum).
 
